@@ -278,33 +278,42 @@ class RegOperand(BaseRegOperand):
                 traceData->setData(final_val);
         }}'''
 
+class RegOperandDesc(OperandDesc):
+    def __init__(self, reg_class, *args, **kwargs):
+        super(RegOperandDesc, self).__init__(*args, **kwargs)
+        self.attrs['reg_class'] = reg_class
+
 class IntRegOperand(RegOperand):
     reg_class = 'IntRegClass'
 
-class IntRegOperandDesc(OperandDesc):
+class IntRegOperandDesc(RegOperandDesc):
     def __init__(self, *args, **kwargs):
-        super(IntRegOperandDesc, self).__init__('IntReg', *args, **kwargs)
+        super(IntRegOperandDesc, self).__init__(
+                'IntRegClass', 'Reg', *args, **kwargs)
 
 class FloatRegOperand(RegOperand):
     reg_class = 'FloatRegClass'
 
-class FloatRegOperandDesc(OperandDesc):
+class FloatRegOperandDesc(RegOperandDesc):
     def __init__(self, *args, **kwargs):
-        super(FloatRegOperandDesc, self).__init__('FloatReg', *args, **kwargs)
+        super(FloatRegOperandDesc, self).__init__(
+                'FloatRegClass', 'Reg', *args, **kwargs)
 
 class CCRegOperand(RegOperand):
     reg_class = 'CCRegClass'
 
-class CCRegOperandDesc(OperandDesc):
+class CCRegOperandDesc(RegOperandDesc):
     def __init__(self, *args, **kwargs):
-        super(CCRegOperandDesc, self).__init__('CCReg', *args, **kwargs)
+        super(CCRegOperandDesc, self).__init__(
+                'CCRegClass', 'Reg', *args, **kwargs)
 
 class VecElemOperand(RegOperand):
     reg_class = 'VecElemClass'
 
-class VecElemOperandDesc(OperandDesc):
+class VecElemOperandDesc(RegOperandDesc):
     def __init__(self, *args, **kwargs):
-        super(VecElemOperandDesc, self).__init__('VecElem', *args, **kwargs)
+        super(VecElemOperandDesc, self).__init__(
+                'VecElemClass', 'Reg', *args, **kwargs)
 
 class VecRegOperand(BaseRegOperand):
     reg_class = 'VecRegClass'
@@ -434,9 +443,10 @@ class VecRegOperand(BaseRegOperand):
         if self.is_dest:
             self.op_rd = self.makeReadW(predWrite) + self.op_rd
 
-class VecRegOperandDesc(OperandDesc):
+class VecRegOperandDesc(RegOperandDesc):
     def __init__(self, *args, **kwargs):
-        super(VecRegOperandDesc, self).__init__('VecReg', *args, **kwargs)
+        super(VecRegOperandDesc, self).__init__(
+                'VecRegClass', 'VecReg', *args, **kwargs)
 
 class VecPredRegOperand(BaseRegOperand):
     reg_class = 'VecPredRegClass'
@@ -499,10 +509,10 @@ class VecPredRegOperand(BaseRegOperand):
         if self.is_dest:
             self.op_rd = self.makeReadW(predWrite) + self.op_rd
 
-class VecPredRegOperandDesc(OperandDesc):
+class VecPredRegOperandDesc(RegOperandDesc):
     def __init__(self, *args, **kwargs):
         super(VecPredRegOperandDesc, self).__init__(
-                'VecPredReg', *args, **kwargs)
+                'VecPredRegClass', 'VecPredReg', *args, **kwargs)
 
 class ControlRegOperand(Operand):
     reg_class = 'MiscRegClass'
@@ -558,10 +568,10 @@ class ControlRegOperand(Operand):
 
         return wb
 
-class ControlRegOperandDesc(OperandDesc):
+class ControlRegOperandDesc(RegOperandDesc):
     def __init__(self, *args, **kwargs):
         super(ControlRegOperandDesc, self).__init__(
-                'ControlReg', *args, **kwargs)
+                'MiscRegClass', 'ControlReg', *args, **kwargs)
 
 class MemOperand(Operand):
     def isMem(self):
