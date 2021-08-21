@@ -149,7 +149,7 @@ class Operand(object):
         # to avoid 'uninitialized variable' errors from the compiler.
         return self.ctype + ' ' + self.base_name + ' = 0;\n';
 
-class RegOperand(Operand):
+class BaseRegOperand(Operand):
     def isReg(self):
         return 1
 
@@ -172,56 +172,7 @@ class RegOperand(Operand):
 
         return c_src + c_dest
 
-class IntRegOperand(RegOperand):
-    reg_class = 'IntRegClass'
-
-    def makeRead(self, predRead):
-        if (self.ctype == 'float' or self.ctype == 'double'):
-            error('Attempt to read integer register as FP')
-        if self.read_code != None:
-            return self.buildReadCode(predRead, 'getRegOperand')
-
-        int_reg_val = ''
-        if predRead:
-            int_reg_val = 'xc->getRegOperand(this, _sourceIndex++)'
-            if self.hasReadPred():
-                int_reg_val = '(%s) ? %s : 0' % \
-                              (self.read_predicate, int_reg_val)
-        else:
-            int_reg_val = 'xc->getRegOperand(this, %d)' % self.src_reg_idx
-
-        return '%s = %s;\n' % (self.base_name, int_reg_val)
-
-    def makeWrite(self, predWrite):
-        if (self.ctype == 'float' or self.ctype == 'double'):
-            error('Attempt to write integer register as FP')
-        if self.write_code != None:
-            return self.buildWriteCode(predWrite, 'setRegOperand')
-
-        if predWrite:
-            wp = 'true'
-            if self.hasWritePred():
-                wp = self.write_predicate
-
-            wcond = 'if (%s)' % (wp)
-            windex = '_destIndex++'
-        else:
-            wcond = ''
-            windex = '%d' % self.dest_reg_idx
-
-        wb = '''
-        %s
-        {
-            %s final_val = %s;
-            xc->setRegOperand(this, %s, final_val);\n
-            if (traceData) { traceData->setData(final_val); }
-        }''' % (wcond, self.ctype, self.base_name, windex)
-
-        return wb
-
-class FloatRegOperand(RegOperand):
-    reg_class = 'FloatRegClass'
-
+class RegOperand(BaseRegOperand):
     def makeRead(self, predRead):
         if self.read_code != None:
             return self.buildReadCode(predRead, 'getRegOperand')
@@ -229,41 +180,61 @@ class FloatRegOperand(RegOperand):
         if predRead:
             rindex = '_sourceIndex++'
         else:
-            rindex = '%d' % self.src_reg_idx
+            rindex = str(self.src_reg_idx)
+        reg_val = f'xc->getRegOperand(this, {rindex})'
 
-        code = 'xc->getRegOperand(this, %s)' % rindex
         if self.ctype == 'float':
-            code = 'bitsToFloat32(%s)' % code
+            reg_val = f'bitsToFloat32({reg_val})'
         elif self.ctype == 'double':
-            code = 'bitsToFloat64(%s)' % code
-        return '%s = %s;\n' % (self.base_name, code)
+            reg_val = f'bitsToFloat64({reg_val})'
+
+        if predRead and self.hasReadPred():
+            reg_val = f'({self.read_predicate}) ? {reg_val} : 0'
+
+        return f'{self.base_name} = {reg_val};\n'
 
     def makeWrite(self, predWrite):
         if self.write_code != None:
             return self.buildWriteCode(predWrite, 'setRegOperand')
 
-        if predWrite:
-            wp = '_destIndex++'
-        else:
-            wp = '%d' % self.dest_reg_idx
+        reg_val = self.base_name
 
-        val = 'final_val'
         if self.ctype == 'float':
-            val = 'floatToBits32(%s)' % val
+            reg_val = f'floatToBits32({reg_val})'
         elif self.ctype == 'double':
-            val = 'floatToBits64(%s)' % val
+            reg_val = f'floatToBits64({reg_val})'
 
-        wp = 'xc->setRegOperand(this, %s, %s);' % (wp, val)
+        if predWrite:
+            wcond = ''
+            if self.hasWritePred():
+                wcond = f'if ({self.write_predicate})'
+            windex = '_destIndex++'
+        else:
+            wcond = ''
+            windex = str(self.dest_reg_idx)
 
-        wb = '''
-        {
-            %s final_val = %s;
-            %s\n
-            if (traceData) { traceData->setData(final_val); }
-        }''' % (self.ctype, self.base_name, wp)
-        return wb
+        return f'''
+        {wcond}
+        {{
+            RegVal final_val = {reg_val};
+            xc->setRegOperand(this, {windex}, final_val);
+            if (traceData)
+                traceData->setData(final_val);
+        }}'''
 
-class VecRegOperand(RegOperand):
+class IntRegOperand(RegOperand):
+    reg_class = 'IntRegClass'
+
+class FloatRegOperand(RegOperand):
+    reg_class = 'FloatRegClass'
+
+class CCRegOperand(RegOperand):
+    reg_class = 'CCRegClass'
+
+class VecElemOperand(RegOperand):
+    reg_class = 'VecElemClass'
+
+class VecRegOperand(BaseRegOperand):
     reg_class = 'VecRegClass'
 
     def __init__(self, parser, full_name, ext, is_src, is_dest):
@@ -391,18 +362,7 @@ class VecRegOperand(RegOperand):
         if self.is_dest:
             self.op_rd = self.makeReadW(predWrite) + self.op_rd
 
-class VecElemOperand(RegOperand):
-    reg_class = 'VecElemClass'
-
-    def makeRead(self, predRead):
-        return f'xc->getRegOperand(this, {self.src_reg_idx}, ' \
-               f'&{self.base_name});'
-
-    def makeWrite(self, predWrite):
-        return f'\n\txc->setRegOperand(this, {self.dest_reg_idx}, ' \
-               f'&{self.base_name});'
-
-class VecPredRegOperand(RegOperand):
+class VecPredRegOperand(BaseRegOperand):
     reg_class = 'VecPredRegClass'
 
     def makeDecl(self):
@@ -462,53 +422,6 @@ class VecPredRegOperand(RegOperand):
         super().finalize(predRead, predWrite)
         if self.is_dest:
             self.op_rd = self.makeReadW(predWrite) + self.op_rd
-
-class CCRegOperand(RegOperand):
-    reg_class = 'CCRegClass'
-
-    def makeRead(self, predRead):
-        if (self.ctype == 'float' or self.ctype == 'double'):
-            error('Attempt to read condition-code register as FP')
-        if self.read_code != None:
-            return self.buildReadCode(predRead, 'getRegOperand')
-
-        int_reg_val = ''
-        if predRead:
-            int_reg_val = 'xc->getRegOperand(this, _sourceIndex++)'
-            if self.hasReadPred():
-                int_reg_val = '(%s) ? %s : 0' % \
-                              (self.read_predicate, int_reg_val)
-        else:
-            int_reg_val = 'xc->getRegOperand(this, %d)' % self.src_reg_idx
-
-        return '%s = %s;\n' % (self.base_name, int_reg_val)
-
-    def makeWrite(self, predWrite):
-        if (self.ctype == 'float' or self.ctype == 'double'):
-            error('Attempt to write condition-code register as FP')
-        if self.write_code != None:
-            return self.buildWriteCode(predWrite, 'setRegOperand')
-
-        if predWrite:
-            wp = 'true'
-            if self.hasWritePred():
-                wp = self.write_predicate
-
-            wcond = 'if (%s)' % (wp)
-            windex = '_destIndex++'
-        else:
-            wcond = ''
-            windex = '%d' % self.dest_reg_idx
-
-        wb = '''
-        %s
-        {
-            %s final_val = %s;
-            xc->setRegOperand(this, %s, final_val);\n
-            if (traceData) { traceData->setData(final_val); }
-        }''' % (wcond, self.ctype, self.base_name, windex)
-
-        return wb
 
 class ControlRegOperand(Operand):
     reg_class = 'MiscRegClass'
