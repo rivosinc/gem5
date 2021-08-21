@@ -281,14 +281,30 @@ class RegOperand(BaseRegOperand):
 class IntRegOperand(RegOperand):
     reg_class = 'IntRegClass'
 
+class IntRegOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(IntRegOperandDesc, self).__init__('IntReg', *args, **kwargs)
+
 class FloatRegOperand(RegOperand):
     reg_class = 'FloatRegClass'
+
+class FloatRegOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(FloatRegOperandDesc, self).__init__('FloatReg', *args, **kwargs)
 
 class CCRegOperand(RegOperand):
     reg_class = 'CCRegClass'
 
+class CCRegOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(CCRegOperandDesc, self).__init__('CCReg', *args, **kwargs)
+
 class VecElemOperand(RegOperand):
     reg_class = 'VecElemClass'
+
+class VecElemOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(VecElemOperandDesc, self).__init__('VecElem', *args, **kwargs)
 
 class VecRegOperand(BaseRegOperand):
     reg_class = 'VecRegClass'
@@ -418,6 +434,10 @@ class VecRegOperand(BaseRegOperand):
         if self.is_dest:
             self.op_rd = self.makeReadW(predWrite) + self.op_rd
 
+class VecRegOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(VecRegOperandDesc, self).__init__('VecReg', *args, **kwargs)
+
 class VecPredRegOperand(BaseRegOperand):
     reg_class = 'VecPredRegClass'
 
@@ -479,6 +499,11 @@ class VecPredRegOperand(BaseRegOperand):
         if self.is_dest:
             self.op_rd = self.makeReadW(predWrite) + self.op_rd
 
+class VecPredRegOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(VecPredRegOperandDesc, self).__init__(
+                'VecPredReg', *args, **kwargs)
+
 class ControlRegOperand(Operand):
     reg_class = 'MiscRegClass'
 
@@ -533,6 +558,11 @@ class ControlRegOperand(Operand):
 
         return wb
 
+class ControlRegOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(ControlRegOperandDesc, self).__init__(
+                'ControlReg', *args, **kwargs)
+
 class MemOperand(Operand):
     def isMem(self):
         return 1
@@ -553,6 +583,10 @@ class MemOperand(Operand):
         if self.write_code != None:
             return self.buildWriteCode(predWrite)
         return ''
+
+class MemOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(MemOperandDesc, self).__init__('Mem', *args, **kwargs)
 
 class PCStateOperand(Operand):
     def __init__(self, parser, *args, **kwargs):
@@ -591,3 +625,7 @@ class PCStateOperand(Operand):
 
     def isPCState(self):
         return 1
+
+class PCStateOperandDesc(OperandDesc):
+    def __init__(self, *args, **kwargs):
+        super(PCStateOperandDesc, self).__init__('PCState', *args, **kwargs)
