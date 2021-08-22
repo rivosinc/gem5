@@ -1131,13 +1131,19 @@ class DynInst : public ExecContext, public RefCounted
     RegVal
     getRegOperand(const StaticInst *si, int idx) override
     {
-        return cpu->getReg(renamedSrcIdx(idx));
+        const PhysRegIdPtr reg = renamedSrcIdx(idx);
+        if (reg->is(InvalidRegClass))
+            return 0;
+        return cpu->getReg(reg);
     }
 
     void
     getRegOperand(const StaticInst *si, int idx, void *val) override
     {
-        cpu->getReg(renamedSrcIdx(idx), val);
+        const PhysRegIdPtr reg = renamedSrcIdx(idx);
+        if (reg->is(InvalidRegClass))
+            return;
+        cpu->getReg(reg, val);
     }
 
     void *
@@ -1152,14 +1158,20 @@ class DynInst : public ExecContext, public RefCounted
     void
     setRegOperand(const StaticInst *si, int idx, RegVal val) override
     {
-        cpu->setReg(renamedDestIdx(idx), val);
+        const PhysRegIdPtr reg = renamedDestIdx(idx);
+        if (reg->is(InvalidRegClass))
+            return;
+        cpu->setReg(reg, val);
         setResult(val);
     }
 
     void
     setRegOperand(const StaticInst *si, int idx, const void *val) override
     {
-        cpu->setReg(renamedDestIdx(idx), val);
+        const PhysRegIdPtr reg = renamedDestIdx(idx);
+        if (reg->is(InvalidRegClass))
+            return;
+        cpu->setReg(reg, val);
         //TODO setResult
     }
 };
