@@ -103,9 +103,8 @@ class Operand(object):
     src_reg_constructor = '\n\tsetSrcRegIdx(_numSrcRegs++, RegId(%s, %s));'
     dst_reg_constructor = '\n\tsetDestRegIdx(_numDestRegs++, RegId(%s, %s));'
 
-    def buildReadCode(self, predRead, func='getRegOperand'):
+    def buildReadCode(self, predRead):
         subst_dict = {"name": self.base_name,
-                      "func": func,
                       "reg_idx": self.reg_spec,
                       "ctype": self.ctype}
         if hasattr(self, 'src_reg_idx'):
@@ -114,9 +113,8 @@ class Operand(object):
         code = self.read_code % subst_dict
         return '%s = %s;\n' % (self.base_name, code)
 
-    def buildWriteCode(self, predWrite, func='setRegOperand'):
+    def buildWriteCode(self, predWrite):
         subst_dict = {"name": self.base_name,
-                      "func": func,
                       "reg_idx": self.reg_spec,
                       "ctype": self.ctype,
                       "final_val": self.base_name}
@@ -521,7 +519,7 @@ class ControlRegOperand(Operand):
         if (self.ctype == 'float' or self.ctype == 'double'):
             error('Attempt to read control register as FP')
         if self.read_code != None:
-            return self.buildReadCode(predRead, 'readMiscRegOperand')
+            return self.buildReadCode(predRead)
 
         if predRead:
             rindex = '_sourceIndex++'
@@ -535,7 +533,7 @@ class ControlRegOperand(Operand):
         if (self.ctype == 'float' or self.ctype == 'double'):
             error('Attempt to write control register as FP')
         if self.write_code != None:
-            return self.buildWriteCode(predWrite, 'setMiscRegOperand')
+            return self.buildWriteCode(predWrite)
 
         if predWrite:
             windex = '_destIndex++'
