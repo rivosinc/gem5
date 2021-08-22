@@ -102,6 +102,10 @@ let {{
             super(VecPredReg, self).__init__('pc', idx, sort_pri=srtNormal)
 
     class IntRegNPC(IntRegOp):
+        @overrideInOperand
+        def regId(self):
+            return f'(({self.reg_spec}) == gem5::ArmISA::INTREG_ZERO) ? ' \
+                   f'RegId() : RegId({self.reg_class}, {self.reg_spec})'
         def __init__(self, idx, ctype='uw', id=srtNormal):
             super(IntRegNPC, self).__init__(ctype, idx, 'IsInteger', id)
 
@@ -161,6 +165,10 @@ let {{
             '''
 
     class IntReg64(IntRegOp):
+        @overrideInOperand
+        def regId(self):
+            return f'(({self.reg_spec}) == gem5::ArmISA::INTREG_ZERO) ? ' \
+                   f'RegId() : RegId({self.reg_class}, {self.reg_spec})'
         @overrideInOperand
         def makeRead(self, predRead, op_idx):
             return f'{self.base_name} = ' \
