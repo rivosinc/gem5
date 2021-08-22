@@ -345,9 +345,7 @@ class VecRegOperand(BaseRegOperand):
         return c_read
 
     def makeReadW(self, predWrite):
-        func = 'getWritableRegOperand'
-        if self.read_code != None:
-            return self.buildReadCode(predWrite, func)
+        assert(self.read_code == None)
 
         if predWrite:
             rindex = '_destIndex++'
@@ -459,9 +457,7 @@ class VecPredRegOperand(BaseRegOperand):
         return c_read
 
     def makeReadW(self, predWrite):
-        func = 'getWritableRegOperand'
-        if self.read_code != None:
-            return self.buildReadCode(predWrite, 'getWritableRegOperand')
+        assert(self.read_code == None)
 
         if predWrite:
             rindex = '_destIndex++'
