@@ -87,7 +87,7 @@ class ExecContext : public gem5::ExecContext
     ExecContext (
         MinorCPU &cpu_,
         SimpleThread &thread_, Execute &execute_,
-        MinorDynInstPtr inst_, RegIndex zeroReg) :
+        MinorDynInstPtr inst_) :
         cpu(cpu_),
         thread(thread_),
         execute(execute_),
@@ -97,7 +97,6 @@ class ExecContext : public gem5::ExecContext
         pcState(*inst->pc);
         setPredicate(inst->readPredicate());
         setMemAccPredicate(inst->readMemAccPredicate());
-        thread.setIntReg(zeroReg, 0);
     }
 
     ~ExecContext()
