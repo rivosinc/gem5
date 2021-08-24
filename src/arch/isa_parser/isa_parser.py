@@ -1485,7 +1485,7 @@ StaticInstPtr
         extensions = self.operandTypeMap.keys()
 
         operandsREString = r'''
-        (?<!\w)      # neg. lookbehind assertion: prevent partial matches
+        (?<!\w|:)     # neg. lookbehind assertion: prevent partial matches
         ((%s)(?:_(%s))?)   # match: operand with optional '_' then suffix
         (?!\w)       # neg. lookahead assertion: prevent partial matches
         ''' % ('|'.join(operands), '|'.join(extensions))
