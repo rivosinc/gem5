@@ -76,8 +76,8 @@ X86FaultBase::invoke(ThreadContext *tc, const StaticInstPtr &inst)
     } else {
         entry = extern_label_legacyModeInterrupt;
     }
-    tc->setIntReg(INTREG_MICRO(1), vector);
-    tc->setIntReg(INTREG_MICRO(7), pc.pc());
+    tc->setIntReg(intRegMicro(1), vector);
+    tc->setIntReg(intRegMicro(7), pc.pc());
     if (errorCode != (uint64_t)(-1)) {
         if (m5reg.mode == LongMode) {
             entry = extern_label_longModeInterruptWithError;
@@ -88,7 +88,7 @@ X86FaultBase::invoke(ThreadContext *tc, const StaticInstPtr &inst)
         // Software interrupts shouldn't have error codes. If one
         // does, there would need to be microcode to set it up.
         assert(!isSoft());
-        tc->setIntReg(INTREG_MICRO(15), errorCode);
+        tc->setIntReg(intRegMicro(15), errorCode);
     }
     pc.upc(romMicroPC(entry));
     pc.nupc(romMicroPC(entry) + 1);
@@ -183,7 +183,7 @@ InitInterrupt::invoke(ThreadContext *tc, const StaticInstPtr &inst)
 {
     DPRINTF(Faults, "Init interrupt.\n");
     // The otherwise unmodified integer registers should be set to 0.
-    for (int index = 0; index < NUM_ARCH_INTREGS; index++) {
+    for (int index = 0; index < int_reg::NumArchRegs; index++) {
         tc->setIntReg(index, 0);
     }
 
@@ -273,7 +273,7 @@ InitInterrupt::invoke(ThreadContext *tc, const StaticInstPtr &inst)
     // This value should be the family/model/stepping of the processor.
     // (page 418). It should be consistent with the value from CPUID, but
     // the actual value probably doesn't matter much.
-    tc->setIntReg(INTREG_RDX, 0);
+    tc->setIntReg(int_reg::Rdx, 0);
 
     tc->setMiscReg(MISCREG_DR0, 0);
     tc->setMiscReg(MISCREG_DR1, 0);
