@@ -319,7 +319,7 @@ TLB::translate(const RequestPtr &req,
 
     // If this is true, we're dealing with a request to a non-memory address
     // space.
-    if (seg == SEGMENT_REG_MS) {
+    if (seg == segment_idx::Ms) {
         return translateInt(mode == BaseMMU::Read, req, tc);
     }
 
@@ -335,13 +335,13 @@ TLB::translate(const RequestPtr &req,
         if (m5Reg.mode != LongMode) {
             DPRINTF(TLB, "Not in long mode. Checking segment protection.\n");
             // Check for a NULL segment selector.
-            if (!(seg == SEGMENT_REG_TSG || seg == SYS_SEGMENT_REG_IDTR ||
-                        seg == SEGMENT_REG_HS || seg == SEGMENT_REG_LS)
+            if (!(seg == segment_idx::Tsg || seg == segment_idx::Idtr ||
+                        seg == segment_idx::Hs || seg == segment_idx::Ls)
                     && !tc->readMiscRegNoEffect(MISCREG_SEG_SEL(seg)))
                 return std::make_shared<GeneralProtection>(0);
             bool expandDown = false;
             SegAttr attr = tc->readMiscRegNoEffect(MISCREG_SEG_ATTR(seg));
-            if (seg >= SEGMENT_REG_ES && seg <= SEGMENT_REG_HS) {
+            if (seg >= segment_idx::Es && seg <= segment_idx::Hs) {
                 if (!attr.writable && (mode == BaseMMU::Write || storeCheck))
                     return std::make_shared<GeneralProtection>(0);
                 if (!attr.readable && mode == BaseMMU::Read)

@@ -108,23 +108,23 @@ void EmulEnv::doModRM(const ExtMachInst & machInst)
     //the presence of a displacement is supposed to make the instruction
     //default to the data segment.
     if ((base != int_reg::Rbp && base != int_reg::Rsp) || machInst.dispSize) {
-        seg = SEGMENT_REG_DS;
+        seg = segment_idx::Ds;
         //Handle any segment override that might have been in the instruction
         int segFromInst = machInst.legacy.seg;
         if (segFromInst)
-            seg = (SegmentRegIndex)(segFromInst - 1);
+            seg = segFromInst - 1;
     } else {
-        seg = SEGMENT_REG_SS;
+        seg = segment_idx::Ss;
     }
 }
 
 void EmulEnv::setSeg(const ExtMachInst & machInst)
 {
-    seg = SEGMENT_REG_DS;
+    seg = segment_idx::Ds;
     //Handle any segment override that might have been in the instruction
     int segFromInst = machInst.legacy.seg;
     if (segFromInst)
-        seg = (SegmentRegIndex)(segFromInst - 1);
+        seg = segFromInst - 1;
 }
 
 } // namespace gem5
