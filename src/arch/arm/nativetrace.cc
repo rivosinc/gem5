@@ -128,7 +128,9 @@ Trace::ArmNativeTrace::ThreadState::update(ThreadContext *tc)
     changed[STATE_CPSR] = (newState[STATE_CPSR] != oldState[STATE_CPSR]);
 
     for (int i = 0; i < NumVecV7ArchRegs; i++) {
-        auto *vec = tc->readVecReg(RegId(VecRegClass,i)).as<uint64_t>();
+        ArmISA::VecRegContainer vec_container;
+        tc->getReg(RegId(VecRegClass, i), &vec_container);
+        auto *vec = vec_container.as<uint64_t>();
         newState[STATE_F0 + 2*i] = vec[0];
         newState[STATE_F0 + 2*i + 1] = vec[1];
     }
