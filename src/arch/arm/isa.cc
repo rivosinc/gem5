@@ -101,7 +101,7 @@ ISA::ISA(const Params &p) : BaseISA(p), system(NULL),
             vecRegElemClassOps, debug::VecRegs);
     _regClasses.emplace_back(NumVecPredRegs, vecPredRegClassOps,
             debug::VecPredRegs, sizeof(VecPredRegContainer));
-    _regClasses.emplace_back(NUM_CCREGS, debug::CCRegs);
+    _regClasses.emplace_back(cc_reg::NumRegs, debug::CCRegs);
     _regClasses.emplace_back(NUM_MISCREGS, miscRegClassOps, debug::MiscRegs);
 
     miscRegs[MISCREG_SCTLR_RST] = 0;
@@ -569,8 +569,10 @@ ISA::copyRegsFrom(ThreadContext *src)
         tc->setRegFlat(reg, src->getRegFlat(reg));
     }
 
-    for (int i = 0; i < NUM_CCREGS; i++)
-        tc->setCCReg(i, src->readCCReg(i));
+    for (int i = 0; i < cc_reg::NumRegs; i++) {
+        RegId reg(CCRegClass, i);
+        tc->setReg(reg, src->getReg(reg));
+    }
 
     for (int i = 0; i < NUM_MISCREGS; i++)
         tc->setMiscRegNoEffect(i, src->readMiscRegNoEffect(i));
@@ -787,9 +789,9 @@ ISA::readMiscReg(int misc_reg)
       case MISCREG_NZCV:
         {
             CPSR cpsr = 0;
-            cpsr.nz   = tc->readCCReg(CCREG_NZ);
-            cpsr.c    = tc->readCCReg(CCREG_C);
-            cpsr.v    = tc->readCCReg(CCREG_V);
+            cpsr.nz   = tc->getReg(cc_reg::Nz);
+            cpsr.c    = tc->getReg(cc_reg::C);
+            cpsr.v    = tc->getReg(cc_reg::V);
             return cpsr;
         }
       case MISCREG_DAIF:
@@ -2388,9 +2390,9 @@ ISA::setMiscReg(int misc_reg, RegVal val)
             {
                 CPSR cpsr = val;
 
-                tc->setCCReg(CCREG_NZ, cpsr.nz);
-                tc->setCCReg(CCREG_C,  cpsr.c);
-                tc->setCCReg(CCREG_V,  cpsr.v);
+                tc->setReg(cc_reg::Nz, cpsr.nz);
+                tc->setReg(cc_reg::C,  cpsr.c);
+                tc->setReg(cc_reg::V,  cpsr.v);
             }
             break;
           case MISCREG_DAIF:
