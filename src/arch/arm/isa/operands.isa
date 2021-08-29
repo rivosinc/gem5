@@ -104,7 +104,7 @@ let {{
     class IntRegNPC(IntRegOp):
         @overrideInOperand
         def regId(self):
-            return f'(({self.reg_spec}) == gem5::ArmISA::INTREG_ZERO) ? ' \
+            return f'(({self.reg_spec}) == gem5::ArmISA::int_reg::Zero) ? ' \
                    f'RegId() : RegId({self.reg_class}, {self.reg_spec})'
         def __init__(self, idx, ctype='uw', id=srtNormal):
             super(IntRegNPC, self).__init__(ctype, idx, 'IsInteger', id)
@@ -112,13 +112,13 @@ let {{
     class IntReg(IntRegNPC):
         @overrideInOperand
         def makeRead(self):
-            return f'{self.base_name} = ({self.reg_spec} == PCReg) ? ' \
+            return f'{self.base_name} = ({self.reg_spec} == int_reg::Pc) ? ' \
                    f'readPC(xc) : xc->getRegOperand(' \
                    f'this, {self.src_reg_idx});\n'
         @overrideInOperand
         def makeWrite(self):
             return f'''
-            if ({self.reg_spec} == PCReg)
+            if ({self.reg_spec} == int_reg::Pc)
                 setNextPC(xc, {self.base_name});
             else
                 xc->setRegOperand(this, {self.dest_reg_idx}, {self.base_name});
@@ -133,7 +133,7 @@ let {{
     class IntRegAPC(IntReg):
         @overrideInOperand
         def makeRead(self):
-            return f'{self.base_name} = ({self.reg_spec} == PCReg) ? ' \
+            return f'{self.base_name} = ({self.reg_spec} == int_reg::Pc) ? ' \
                    f'(roundDown(readPC(xc), 4)) : ' \
                    f'xc->getRegOperand(this, {self.src_reg_idx});\n'
 
@@ -141,7 +141,7 @@ let {{
         @overrideInOperand
         def makeWrite(self):
             return f'''
-            if ({self.reg_spec} == PCReg)
+            if ({self.reg_spec} == int_reg::Pc)
                 setIWNextPC(xc, {self.base_name});
             else
                 xc->setRegOperand(this, {self.dest_reg_idx}, {self.base_name});
@@ -153,7 +153,7 @@ let {{
         @overrideInOperand
         def makeWrite(self):
             return f'''
-            if ({self.reg_spec} == PCReg) {"{"}
+            if ({self.reg_spec} == int_reg::Pc) {"{"}
                 if ((bool)THUMB)
                     setNextPC(xc, {self.base_name});
                 else
@@ -168,7 +168,7 @@ let {{
     class IntReg64(IntRegOp):
         @overrideInOperand
         def regId(self):
-            return f'(({self.reg_spec}) == gem5::ArmISA::INTREG_ZERO) ? ' \
+            return f'(({self.reg_spec}) == gem5::ArmISA::int_reg::Zero) ? ' \
                    f'RegId() : RegId({self.reg_class}, {self.reg_spec})'
         @overrideInOperand
         def makeRead(self):
@@ -295,11 +295,12 @@ def operands {{
     'PInt3': PIntReg('reg3'),
 
     #Fixed index integer reg operands
-    'SpMode': IntRegNPC('intRegInMode((OperatingMode)regMode, INTREG_SP)'),
+    'SpMode': IntRegNPC('int_reg::regInMode((OperatingMode)regMode, '
+                        'int_reg::Sp)'),
     'DecodedBankedIntReg':
         IntRegNPC('decodeMrsMsrBankedIntRegIndex(byteMask, r)'),
-    'LR': IntRegNPC('INTREG_LR'),
-    'XLR': IntRegX64('INTREG_X30'),
+    'LR': IntRegNPC('int_reg::Lr'),
+    'XLR': IntRegX64('int_reg::X30'),
     'R7': IntRegNPC('7'),
     # First four arguments are passed in registers
     'R0': IntRegNPC('0'),
