@@ -105,7 +105,7 @@ let {{
         @overrideInOperand
         def regId(self):
             return f'(({self.reg_spec}) == gem5::ArmISA::int_reg::Zero) ? ' \
-                   f'RegId() : RegId({self.reg_class}, {self.reg_spec})'
+                   f'RegId() : {self.reg_class}[{self.reg_spec}]'
         def __init__(self, idx, ctype='uw', id=srtNormal):
             super(IntRegNPC, self).__init__(ctype, idx, 'IsInteger', id)
 
@@ -169,7 +169,7 @@ let {{
         @overrideInOperand
         def regId(self):
             return f'(({self.reg_spec}) == gem5::ArmISA::int_reg::Zero) ? ' \
-                   f'RegId() : RegId({self.reg_class}, {self.reg_spec})'
+                   f'RegId() : {self.reg_class}[{self.reg_spec}]'
         @overrideInOperand
         def makeRead(self):
             return f'{self.base_name} = ' \
