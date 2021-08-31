@@ -40,7 +40,8 @@
 
 Import('*')
 
-GTest('aapcs64.test', 'aapcs64.test.cc', '../../base/debug.cc')
+GTest('aapcs64.test', 'aapcs64.test.cc', '../../base/debug.cc',
+        '../../cpu/reg_class.cc')
 Source('decoder.cc', tags='arm isa')
 Source('faults.cc', tags='arm isa')
 Source('htm.cc', tags='arm isa')
