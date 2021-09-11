@@ -198,7 +198,7 @@ class CheckerCPU : public BaseCPU, public ExecContext
         if (id.is(InvalidRegClass))
             return;
         thread->setReg(id, val);
-        result.emplace(val);
+        result.emplace(id.regClass(), val);
     }
 
     void
@@ -208,7 +208,7 @@ class CheckerCPU : public BaseCPU, public ExecContext
         if (id.is(InvalidRegClass))
             return;
         thread->setReg(id, val);
-        //TODO setVecResult, setVecPredResult setVecElemResult?
+        result.emplace(id.regClass(), val);
     }
 
     bool readPredicate() const override { return thread->readPredicate(); }
