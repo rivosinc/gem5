@@ -163,7 +163,7 @@ enum : RegIndex
 
 } // namespace int_reg
 
-inline constexpr RegClass intRegClass(IntRegClass, int_reg::NumRegs,
+inline constexpr RegClass intRegClass(IntRegClass, "integer", int_reg::NumRegs,
         debug::IntRegs);
 
 namespace int_reg

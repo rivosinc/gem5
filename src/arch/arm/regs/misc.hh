@@ -2245,7 +2245,7 @@ namespace ArmISA
     static inline MiscRegClassOps miscRegClassOps;
 
     inline constexpr RegClass miscRegClass =
-        RegClass(MiscRegClass, NUM_MISCREGS, debug::MiscRegs).
+        RegClass(MiscRegClass, "miscellaneous", NUM_MISCREGS, debug::MiscRegs).
             ops(miscRegClassOps);
 
     // This mask selects bits of the CPSR that actually go in the CondCodes

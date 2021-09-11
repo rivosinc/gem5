@@ -75,7 +75,7 @@ namespace
 {
 
 /* Not applicable to ARM */
-RegClass floatRegClass(FloatRegClass, 0, debug::FloatRegs);
+RegClass floatRegClass(FloatRegClass, "floating_point", 0, debug::FloatRegs);
 
 } // anonymous namespace
 

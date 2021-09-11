@@ -200,8 +200,8 @@ enum : RegIndex
 
 } // namespace misc_reg
 
-inline constexpr RegClass miscRegClass(MiscRegClass, misc_reg::NumRegs,
-        debug::MiscRegs);
+inline constexpr RegClass miscRegClass(MiscRegClass, "miscellaneous",
+        misc_reg::NumRegs, debug::MiscRegs);
 
 } // namespace MipsISA
 } // namespace gem5

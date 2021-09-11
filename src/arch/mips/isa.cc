@@ -98,10 +98,12 @@ namespace
 {
 
 /* Not applicable to MIPS. */
-constexpr RegClass vecRegClass(VecRegClass, 1, debug::IntRegs);
-constexpr RegClass vecElemClass(VecElemClass, 2, debug::IntRegs);
-constexpr RegClass vecPredRegClass(VecPredRegClass, 1, debug::IntRegs);
-constexpr RegClass ccRegClass(CCRegClass, 0, debug::IntRegs);
+constexpr RegClass vecRegClass(VecRegClass, "vector", 1, debug::IntRegs);
+constexpr RegClass vecElemClass(VecElemClass, "vector_element", 2,
+        debug::IntRegs);
+constexpr RegClass vecPredRegClass(VecPredRegClass, "vector_predicate", 1,
+        debug::IntRegs);
+constexpr RegClass ccRegClass(CCRegClass, "condition_code", 0, debug::IntRegs);
 
 } // anonymous namespace
 

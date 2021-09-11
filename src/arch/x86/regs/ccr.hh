@@ -61,8 +61,8 @@ enum : RegIndex
 
 } // namesapce cc_reg
 
-inline constexpr RegClass ccRegClass(CCRegClass, cc_reg::NumRegs,
-        debug::CCRegs);
+inline constexpr RegClass ccRegClass(CCRegClass, "condition_code",
+        cc_reg::NumRegs, debug::CCRegs);
 
 namespace cc_reg
 {

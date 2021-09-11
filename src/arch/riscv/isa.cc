@@ -195,10 +195,11 @@ namespace
 {
 
 /* Not applicable to RISCV */
-RegClass vecRegClass(VecRegClass, 1, debug::IntRegs);
-RegClass vecElemClass(VecElemClass, 2, debug::IntRegs);
-RegClass vecPredRegClass(VecPredRegClass, 1, debug::IntRegs);
-RegClass ccRegClass(CCRegClass, 0, debug::IntRegs);
+RegClass vecRegClass(VecRegClass, "vector", 1, debug::IntRegs);
+RegClass vecElemClass(VecElemClass, "vector_element", 2, debug::IntRegs);
+RegClass vecPredRegClass(VecPredRegClass, "vector_predicate", 1,
+        debug::IntRegs);
+RegClass ccRegClass(CCRegClass, "condition_code", 0, debug::IntRegs);
 
 } // anonymous namespace
 
