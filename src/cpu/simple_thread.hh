@@ -333,21 +333,6 @@ class SimpleThread : public ThreadState, public ThreadContext
         return val;
     }
 
-    RegVal
-    getRegFlat(const RegId &reg) const override
-    {
-        const RegIndex idx = reg.index();
-
-        const auto &reg_file = regFiles[reg.classValue()];
-        const auto &reg_class = reg_file.regClass;
-
-        assert(idx < reg_file.size());
-        RegVal val = reg_file.reg(idx);
-        DPRINTFV(reg_class.debug(), "Reading %s reg %d as %#x.\n",
-                reg.className(), idx, val);
-        return val;
-    }
-
     void
     getReg(const RegId &arch_reg, void *val) const override
     {
@@ -364,32 +349,10 @@ class SimpleThread : public ThreadState, public ThreadContext
                 reg_class.valString(val));
     }
 
-    void
-    getRegFlat(const RegId &reg, void *val) const override
-    {
-        const RegIndex idx = reg.index();
-
-        const auto &reg_file = regFiles[reg.classValue()];
-        const auto &reg_class = reg_file.regClass;
-
-        reg_file.get(idx, val);
-        DPRINTFV(reg_class.debug(), "Reading %s register %d as %s.\n",
-                reg.className(), idx, reg_class.valString(val));
-    }
-
     void *
     getWritableReg(const RegId &arch_reg) override
     {
         const RegId reg = flattenRegId(arch_reg);
-        const RegIndex idx = reg.index();
-        auto &reg_file = regFiles[reg.classValue()];
-
-        return reg_file.ptr(idx);
-    }
-
-    void *
-    getWritableRegFlat(const RegId &reg) override
-    {
         const RegIndex idx = reg.index();
         auto &reg_file = regFiles[reg.classValue()];
 
@@ -415,22 +378,6 @@ class SimpleThread : public ThreadState, public ThreadContext
     }
 
     void
-    setRegFlat(const RegId &reg, RegVal val) override
-    {
-        const RegIndex idx = reg.index();
-
-        if (reg.is(InvalidRegClass))
-            return;
-
-        auto &reg_file = regFiles[reg.classValue()];
-        const auto &reg_class = reg_file.regClass;
-
-        DPRINTFV(reg_class.debug(), "Setting %s register %d to %#x.\n",
-                reg.className(), idx, val);
-        reg_file.reg(idx) = val;
-    }
-
-    void
     setReg(const RegId &arch_reg, const void *val) override
     {
         const RegId reg = flattenRegId(arch_reg);
@@ -443,19 +390,6 @@ class SimpleThread : public ThreadState, public ThreadContext
         DPRINTFV(reg_class.debug(), "Setting %s register %s (%d) to %s.\n",
                 reg.className(), reg_class.regName(arch_reg), idx,
                 reg_class.valString(val));
-        reg_file.set(idx, val);
-    }
-
-    void
-    setRegFlat(const RegId &reg, const void *val) override
-    {
-        const RegIndex idx = reg.index();
-
-        auto &reg_file = regFiles[reg.classValue()];
-        const auto &reg_class = reg_file.regClass;
-
-        DPRINTFV(reg_class.debug(), "Setting %s register %d to %s.\n",
-                reg.className(), idx, reg_class.valString(val));
         reg_file.set(idx, val);
     }
 
