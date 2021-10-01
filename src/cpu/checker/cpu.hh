@@ -198,7 +198,7 @@ class CheckerCPU : public BaseCPU, public ExecContext
         if (id.is(InvalidRegClass))
             return;
         const RegId flat = id.flatten(*thread->getIsaPtr());
-        thread->setRegFlat(flat, val);
+        thread->setReg(flat, val);
         result.emplace(flat.regClass(), val);
     }
 
@@ -209,7 +209,7 @@ class CheckerCPU : public BaseCPU, public ExecContext
         if (id.is(InvalidRegClass))
             return;
         const RegId flat = id.flatten(*thread->getIsaPtr());
-        thread->setRegFlat(flat, val);
+        thread->setReg(flat, val);
         result.emplace(flat.regClass(), val);
     }
 
