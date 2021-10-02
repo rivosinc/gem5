@@ -619,7 +619,7 @@ namespace ArmISA
         void assert64() { assert(!((CPSR)readMiscReg(MISCREG_CPSR)).width); }
 
       public:
-        void clear();
+        void clear() override;
 
       protected:
         void clear32(const ArmISAParams &p, const SCTLR &sctlr_rst);
