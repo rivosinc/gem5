@@ -149,7 +149,7 @@ TLBCoalescer::updatePhysAddresses(PacketPtr pkt)
     GpuTranslationState *sender_state =
         safe_cast<GpuTranslationState*>(pkt->senderState);
 
-    TheISA::TlbEntry *tlb_entry = sender_state->tlbEntry;
+    X86ISA::TlbEntry *tlb_entry = sender_state->tlbEntry;
     assert(tlb_entry);
     Addr first_entry_vaddr = tlb_entry->vaddr;
     Addr first_entry_paddr = tlb_entry->paddr;
@@ -192,7 +192,7 @@ TLBCoalescer::updatePhysAddresses(PacketPtr pkt)
             // the correct TLBEentry in the TLBs above.
             auto p = sender_state->tc->getProcessPtr();
             sender_state->tlbEntry =
-                new TheISA::TlbEntry(p->pid(), first_entry_vaddr,
+                new X86ISA::TlbEntry(p->pid(), first_entry_vaddr,
                     first_entry_paddr, false, false);
 
             // update the hitLevel for all uncoalesced reqs
