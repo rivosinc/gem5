@@ -39,6 +39,7 @@ import math
 
 from m5.defines import buildEnv
 from m5.util import fatal, panic
+from gem5.runtime import get_runtime_isa_str
 
 from m5.objects import *
 
@@ -143,7 +144,7 @@ class L1Cache(L1Cache_Controller):
            3. The local exclusive monitor in ARM systems
         """
         if type(cpu) is DerivO3CPU or \
-           buildEnv['TARGET_ISA'] in ('x86', 'arm'):
+                get_runtime_isa_str() in ('x86', 'arm'):
             return True
         return False
 

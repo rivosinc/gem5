@@ -41,11 +41,12 @@ from m5.defines import buildEnv
 from base_config import *
 from arm_generic import *
 from common.cores.arm.O3_ARM_v7a import O3_ARM_v7a_3
+from gem5.runtime import get_runtime_isa_str
 
 # If we are running ARM regressions, use a more sensible CPU
 # configuration. This makes the results more meaningful, and also
 # increases the coverage of the regressions.
-if buildEnv['TARGET_ISA'] == "arm":
+if get_runtime_isa_str() == "arm":
     root = ArmSESystemUniprocessor(mem_mode='timing', mem_class=DDR3_1600_8x8,
                                    cpu_class=O3_ARM_v7a_3).create_root()
 else:

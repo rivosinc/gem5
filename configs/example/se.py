@@ -49,6 +49,7 @@ from m5.defines import buildEnv
 from m5.objects import *
 from m5.params import NULL
 from m5.util import addToPath, fatal, warn
+from gem5.runtime import get_runtime_isa_str
 
 addToPath('../')
 
@@ -136,17 +137,18 @@ if args.bench:
 
     for app in apps:
         try:
-            if buildEnv['TARGET_ISA'] == 'arm':
+            if get_runtime_isa_str() == "arm":
                 exec("workload = %s('arm_%s', 'linux', '%s')" % (
                         app, args.arm_iset, args.spec_input))
             else:
+                # TARGET_ISA has been removed, but this is missing a ], so it
+                # has incorrect syntax and wasn't being used anyway.
                 exec("workload = %s(buildEnv['TARGET_ISA', 'linux', '%s')" % (
                         app, args.spec_input))
             multiprocesses.append(workload.makeProcess())
         except:
             print("Unable to find workload for %s: %s" %
-                  (buildEnv['TARGET_ISA'], app),
-                  file=sys.stderr)
+                    (get_runtime_isa_str(), app), file=sys.stderr)
             sys.exit(1)
 elif args.cmd:
     multiprocesses, numThreads = get_processes(args)
@@ -198,7 +200,7 @@ for cpu in system.cpu:
     cpu.clk_domain = system.cpu_clk_domain
 
 if ObjectList.is_kvm_cpu(CPUClass) or ObjectList.is_kvm_cpu(FutureClass):
-    if buildEnv['TARGET_ISA'] == 'x86':
+    if buildEnv['USE_X86_ISA']:
         system.kvm_vm = KvmVM()
         system.m5ops_base = 0xffff0000
         for process in multiprocesses:

@@ -28,6 +28,6 @@
 
 Import('*')
 
-if env['TARGET_ISA'] != 'null':
+if not env['USE_NULL_ISA']:
     SimObject('SimPoint.py', sim_objects=['SimPoint'])
     Source('simpoint.cc')

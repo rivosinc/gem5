@@ -115,7 +115,7 @@ SimObject('ArmTLB.py', sim_objects=['ArmTLB'], enums=['ArmLookupLevel'],
 SimObject('ArmPMU.py', sim_objects=['ArmPMU'], tags='arm isa')
 
 SimObject('ArmCPU.py', sim_objects=[], tags='arm isa')
-if env['TARGET_ISA'] == 'arm':
+if env['USE_ARM_ISA']:
     SimObject('AtomicSimpleCPU.py', sim_objects=[], tags='arm isa')
     SimObject('TimingSimpleCPU.py', sim_objects=[], tags='arm isa')
     SimObject('NonCachingSimpleCPU.py', sim_objects=[], tags='arm isa')

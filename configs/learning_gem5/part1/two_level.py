@@ -42,6 +42,8 @@ IMPORTANT: If you modify this file, it's likely that the Learning gem5 book
 import m5
 # import all of the SimObjects
 from m5.objects import *
+# XXX Deprecated
+from gem5.runtime import get_runtime_isa_str
 
 # Add the common scripts to our path
 m5.util.addToPath('../../')
@@ -53,7 +55,7 @@ from caches import *
 from common import SimpleOpts
 
 # get ISA for the default binary to run. This is mostly for simple testing
-isa = str(m5.defines.buildEnv['TARGET_ISA']).lower()
+isa = get_runtime_isa_str()
 
 # Default to running 'hello', use the compiled ISA to find the binary
 # grab the specific path to the binary
@@ -112,7 +114,7 @@ system.cpu.createInterruptController()
 
 # For x86 only, make sure the interrupts are connected to the memory
 # Note: these are directly connected to the memory bus and are not cached
-if m5.defines.buildEnv['TARGET_ISA'] == "x86":
+if get_runtime_isa_str() == "x86":
     system.cpu.interrupts[0].pio = system.membus.mem_side_ports
     system.cpu.interrupts[0].int_requestor = system.membus.cpu_side_ports
     system.cpu.interrupts[0].int_responder = system.membus.mem_side_ports

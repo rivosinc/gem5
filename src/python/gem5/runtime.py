@@ -33,6 +33,33 @@ from m5.defines import buildEnv
 from .isas import ISA
 from .coherence_protocol import CoherenceProtocol
 
+_isa_map = {
+    "sparc": ISA.SPARC,
+    "mips": ISA.MIPS,
+    "null": ISA.NULL,
+    "arm": ISA.ARM,
+    "x86": ISA.X86,
+    "power": ISA.POWER,
+    "riscv": ISA.RISCV,
+}
+
+
+def get_runtime_isa_str() -> str:
+    """Gets a string representing the target ISA.
+    This can be inferred at runtime.
+
+    :returns: A string representing the target ISA.
+    """
+
+    enabled_isas = list([isa for isa in _isa_map.keys() if
+            buildEnv[f'USE_{isa.upper()}_ISA']])
+
+    num_isas = len(enabled_isas)
+    if num_isas != 1:
+        raise ValueError(f'Expected one ISA enabled, found {num_isas}')
+
+    return enabled_isas[0]
+
 
 def get_runtime_isa() -> ISA:
     """Gets the target ISA.
@@ -40,23 +67,7 @@ def get_runtime_isa() -> ISA:
 
     :returns: The target ISA.
     """
-    isa_map = {
-        "sparc": ISA.SPARC,
-        "mips": ISA.MIPS,
-        "null": ISA.NULL,
-        "arm": ISA.ARM,
-        "x86": ISA.X86,
-        "power": ISA.POWER,
-        "riscv": ISA.RISCV,
-    }
-
-    isa_str = str(buildEnv["TARGET_ISA"]).lower()
-    if isa_str not in isa_map.keys():
-        raise NotImplementedError(
-            "ISA '" + buildEnv["TARGET_ISA"] + "' not recognized."
-        )
-
-    return isa_map[isa_str]
+    return _isa_map[get_runtime_isa_str()]
 
 
 def get_runtime_coherence_protocol() -> CoherenceProtocol:

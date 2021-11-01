@@ -42,6 +42,7 @@ import m5
 from m5.objects import *
 from m5.defines import buildEnv
 from m5.util import addToPath, fatal
+from gem5.runtime import get_runtime_isa_str
 
 addToPath('../')
 
@@ -277,6 +278,6 @@ def send_evicts(options):
     # 2. The x86 mwait instruction is built on top of coherence invalidations
     # 3. The local exclusive monitor in ARM systems
     if options.cpu_type == "DerivO3CPU" or \
-       buildEnv['TARGET_ISA'] in ('x86', 'arm'):
+            get_runtime_isa_str() in ('x86', 'arm'):
         return True
     return False

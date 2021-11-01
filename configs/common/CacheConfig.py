@@ -42,6 +42,8 @@
 
 import m5
 from m5.objects import *
+from gem5.runtime import get_runtime_isa_str
+
 from common.Caches import *
 from common import ObjectList
 
@@ -101,7 +103,7 @@ def config_cache(options, system):
         dcache_class, icache_class, l2_cache_class, walk_cache_class = \
             L1_DCache, L1_ICache, L2Cache, None
 
-        if buildEnv['TARGET_ISA'] in ['x86', 'riscv']:
+        if get_runtime_isa_str() in ['x86', 'riscv']:
             walk_cache_class = PageTableWalkerCache
 
     # Set the cache line size of the system
@@ -174,7 +176,7 @@ def config_cache(options, system):
             # on these names.  For simplicity, we would advise configuring
             # it to use this naming scheme; if this isn't possible, change
             # the names below.
-            if buildEnv['TARGET_ISA'] in ['x86', 'arm', 'riscv']:
+            if get_runtime_isa_str() in ['x86', 'arm', 'riscv']:
                 system.cpu[i].addPrivateSplitL1Caches(
                         ExternalCache("cpu%d.icache" % i),
                         ExternalCache("cpu%d.dcache" % i),

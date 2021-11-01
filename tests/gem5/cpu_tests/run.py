@@ -29,6 +29,7 @@ import os
 import argparse
 
 import m5
+from gem5.runtime import get_runtime_isa_str
 from m5.objects import *
 
 class L1Cache(Cache):
@@ -92,7 +93,7 @@ class L2Cache(Cache):
 class MySimpleMemory(SimpleMemory):
     latency = '1ns'
 
-if buildEnv['TARGET_ISA'] == 'x86':
+if get_runtime_isa_str() == 'x86':
   valid_cpu = {'AtomicSimpleCPU': AtomicSimpleCPU,
                'TimingSimpleCPU': TimingSimpleCPU,
                'DerivO3CPU': DerivO3CPU
@@ -150,7 +151,7 @@ else:
     system.l2cache.connectMemSideBus(system.membus)
 
 system.cpu.createInterruptController()
-if m5.defines.buildEnv['TARGET_ISA'] == "x86":
+if get_runtime_isa_str() == "x86":
     system.cpu.interrupts[0].pio = system.membus.mem_side_ports
     system.cpu.interrupts[0].int_master = system.membus.cpu_side_ports
     system.cpu.interrupts[0].int_slave = system.membus.mem_side_ports
