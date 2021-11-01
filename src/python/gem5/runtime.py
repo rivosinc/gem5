@@ -29,6 +29,7 @@ This file contains functions to extract gem5 runtime information.
 """
 
 from m5.defines import buildEnv
+import typing
 
 from .isas import ISA
 from .coherence_protocol import CoherenceProtocol
@@ -44,6 +45,17 @@ _isa_map = {
 }
 
 
+def get_runtime_isa_strs() -> typing.List[str]:
+    """Gets a list of strings representing the target ISAs.
+    This can be inferred at runtime.
+
+    :returns: A list of strings representing the target ISAs.
+    """
+
+    return list([isa for isa in _isa_map.keys() if
+            buildEnv[f'USE_{isa.upper()}_ISA']])
+
+
 def get_runtime_isa_str() -> str:
     """Gets a string representing the target ISA.
     This can be inferred at runtime.
@@ -51,14 +63,22 @@ def get_runtime_isa_str() -> str:
     :returns: A string representing the target ISA.
     """
 
-    enabled_isas = list([isa for isa in _isa_map.keys() if
-            buildEnv[f'USE_{isa.upper()}_ISA']])
+    enabled_isas = get_runtime_isa_strs()
 
     num_isas = len(enabled_isas)
     if num_isas != 1:
         raise ValueError(f'Expected one ISA enabled, found {num_isas}')
 
     return enabled_isas[0]
+
+
+def get_runtime_isas() -> typing.List[ISA]:
+    """Gets the ISAs gem5 has support for.
+    This can be inferred at runtime.
+
+    :returns: A list of the supported ISAs.
+    """
+    return list([_isa_map[isa] for isa in get_runtime_isa_strs()])
 
 
 def get_runtime_isa() -> ISA:

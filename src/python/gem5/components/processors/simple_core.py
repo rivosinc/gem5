@@ -25,7 +25,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from typing import Optional
-from ...runtime import get_runtime_isa
+from ...runtime import get_runtime_isas
 from ..processors.abstract_core import AbstractCore
 
 from .cpu_types import CPUTypes
@@ -94,7 +94,7 @@ class SimpleCore(AbstractCore):
         # controller as we require it. Not sure how true this is in all cases.
         self.core.createInterruptController()
 
-        if get_runtime_isa() == ISA.X86:
+        if ISA.X86 in get_runtime_isas():
             if interrupt_requestor != None:
                 self.core.interrupts[0].pio = interrupt_requestor
                 self.core.interrupts[0].int_responder = interrupt_requestor

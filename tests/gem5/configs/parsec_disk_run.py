@@ -45,7 +45,7 @@ from gem5.components.processors.simple_switchable_processor import (
 )
 from gem5.components.processors.cpu_types import CPUTypes
 from gem5.isas import ISA
-from gem5.runtime import get_runtime_isa, get_runtime_coherence_protocol
+from gem5.runtime import get_runtime_isas, get_runtime_coherence_protocol
 from gem5.simulate.simulator import Simulator
 from gem5.simulate.exit_event import ExitEvent
 from gem5.utils.requires import requires
@@ -230,7 +230,7 @@ board.set_kernel_disk_workload(
     readfile_contents=command,
 )
 
-print("Running with ISA: " + get_runtime_isa().name)
+print("Running with ISA: " + get_runtime_isas()[0].name)
 print("Running with protocol: " + get_runtime_coherence_protocol().name)
 print()
 
