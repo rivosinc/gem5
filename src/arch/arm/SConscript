@@ -40,6 +40,9 @@
 
 Import('*')
 
+if env['USE_ARM_ISA']:
+    env.TagImplies('arm isa', 'gem5 lib')
+
 GTest('aapcs64.test', 'aapcs64.test.cc', '../../base/debug.cc',
         '../../cpu/reg_class.cc')
 Source('decoder.cc', tags='arm isa')
