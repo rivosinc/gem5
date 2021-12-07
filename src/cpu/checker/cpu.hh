@@ -197,8 +197,9 @@ class CheckerCPU : public BaseCPU, public ExecContext
         const RegId& id = si->destRegIdx(idx);
         if (id.is(InvalidRegClass))
             return;
-        thread->setReg(id, val);
-        result.emplace(id.regClass(), val);
+        const RegId flat = id.flatten(*thread->getIsaPtr());
+        thread->setRegFlat(flat, val);
+        result.emplace(flat.regClass(), val);
     }
 
     void
@@ -207,8 +208,9 @@ class CheckerCPU : public BaseCPU, public ExecContext
         const RegId& id = si->destRegIdx(idx);
         if (id.is(InvalidRegClass))
             return;
-        thread->setReg(id, val);
-        result.emplace(id.regClass(), val);
+        const RegId flat = id.flatten(*thread->getIsaPtr());
+        thread->setRegFlat(flat, val);
+        result.emplace(flat.regClass(), val);
     }
 
     bool readPredicate() const override { return thread->readPredicate(); }
