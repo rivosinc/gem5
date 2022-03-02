@@ -53,17 +53,24 @@ class Decoder : public InstDecoder
     bool aligned;
     bool mid;
 
+    RiscvISA::VTYPE mach_vtype;
+    uint32_t mach_vl;
+
   protected:
     //The extended machine instruction being generated
     ExtMachInst emi;
     uint32_t machInst;
 
-    StaticInstPtr decodeInst(ExtMachInst mach_inst);
+    StaticInstPtr decodeInst(ExtMachInst mach_inst,
+                             RiscvISA::VTYPE mach_vtype,
+                             uint32_t mach_vl);
 
     /// Decode a machine instruction.
     /// @param mach_inst The binary instruction to decode.
     /// @retval A pointer to the corresponding StaticInst object.
     StaticInstPtr decode(ExtMachInst mach_inst, Addr addr);
+
+    StaticInstPtr decode(PCStateBase &nextPC) override;
 
   public:
     Decoder(const RiscvDecoderParams &p) : InstDecoder(p, &machInst)
@@ -79,7 +86,11 @@ class Decoder : public InstDecoder
     //when there is control flow.
     void moreBytes(const PCStateBase &pc, Addr fetchPC) override;
 
-    StaticInstPtr decode(PCStateBase &nextPC) override;
+    void setVl(uint32_t new_vl) { mach_vl = new_vl; }
+    void setVtype(RiscvISA::VTYPE new_vtype) { mach_vtype = new_vtype; }
+
+    uint32_t getVl() { return mach_vl; }
+    RiscvISA::VTYPE getVtype() { return mach_vtype; }
 };
 
 } // namespace RiscvISA

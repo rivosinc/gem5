@@ -4,6 +4,7 @@
 
 #include <sstream>
 
+#include "arch/riscv/decoder.hh"
 #include "arch/riscv/insts/vector.hh"
 #include "arch/riscv/regs/misc.hh"
 #include "arch/riscv/utility.hh"
@@ -96,6 +97,8 @@ setVsetvlCSR(ExecContext *xc,
 
   uint32_t vlmax = getVlmax(xc->readMiscReg(MISCREG_VTYPE), vlen);
 
+  auto tc = xc->tcBase();
+
   if (xc->readMiscReg(MISCREG_VTYPE) != new_vtype) {
     vlmax = getVlmax(new_vtype, vlen);
 
@@ -114,6 +117,8 @@ setVsetvlCSR(ExecContext *xc,
     }
 
     xc->setMiscReg(MISCREG_VTYPE, new_vtype);
+
+    tc->getDecoderPtr()->as<Decoder>().setVtype(new_vtype);
   }
 
   // Set vl
@@ -130,6 +135,7 @@ setVsetvlCSR(ExecContext *xc,
   }
 
   xc->setMiscReg(MISCREG_VL, vl);
+  tc->getDecoderPtr()->as<Decoder>().setVl(vl);
 
   return vl;
 }

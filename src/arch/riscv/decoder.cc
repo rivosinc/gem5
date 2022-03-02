@@ -38,11 +38,22 @@ namespace gem5
 namespace RiscvISA
 {
 
+bool isVConfigInst(ExtMachInst inst)
+{
+    // Looks for VSETVLI
+    uint64_t opcode = bits(inst, 6, 0);
+    uint64_t width = bits(inst, 14, 12);
+    return opcode == 0b1010111u && width == 0b111u;
+}
+
 void Decoder::reset()
 {
     aligned = true;
     mid = false;
     emi = 0;
+
+    mach_vtype = 0;
+    mach_vl = 0;
 }
 
 void
@@ -80,14 +91,16 @@ Decoder::moreBytes(const PCStateBase &pc, Addr fetchPC)
 }
 
 StaticInstPtr
-Decoder::decode(ExtMachInst mach_inst, Addr addr)
+Decoder::decode(ExtMachInst mach_inst,
+                Addr addr)
 {
     DPRINTF(Decode, "Decoding instruction 0x%08x at address %#x\n",
             mach_inst, addr);
 
     StaticInstPtr &si = instMap[mach_inst];
-    if (!si)
-        si = decodeInst(mach_inst);
+    if (!si || si->isVector()) {
+        si = decodeInst(mach_inst, mach_vtype, mach_vl);
+    }
 
     DPRINTF(Decode, "Decode: Decoded %s instruction: %#x\n",
             si->getName(), mach_inst);
