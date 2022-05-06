@@ -61,9 +61,7 @@ class Decoder : public InstDecoder
     ExtMachInst emi;
     uint32_t machInst;
 
-    StaticInstPtr decodeInst(ExtMachInst mach_inst,
-                             RiscvISA::VTYPE mach_vtype,
-                             uint32_t mach_vl);
+    StaticInstPtr decodeInst(ExtMachInst mach_inst);
 
     /// Decode a machine instruction.
     /// @param mach_inst The binary instruction to decode.

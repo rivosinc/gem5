@@ -99,7 +99,7 @@ Decoder::decode(ExtMachInst mach_inst,
 
     StaticInstPtr &si = instMap[mach_inst];
     if (!si || si->isVector()) {
-        si = decodeInst(mach_inst, mach_vtype, mach_vl);
+        si = decodeInst(mach_inst);
     }
 
     DPRINTF(Decode, "Decode: Decoded %s instruction: %#x\n",

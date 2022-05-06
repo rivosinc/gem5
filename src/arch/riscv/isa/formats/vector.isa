@@ -6590,7 +6590,7 @@ def template VectorStridedMemStoreDeclare {{
 
 
 def template VectorDecode {{
-    return new %(class_name)s(machInst, machVtype, machVl);
+    return new %(class_name)s(machInst, getVtype(), getVl());
 }};
 
 def template VectorVMUNARY0Declare {{
