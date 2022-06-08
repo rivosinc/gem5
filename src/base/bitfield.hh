@@ -251,6 +251,27 @@ sadd8(int8_t a, int8_t b, bool &sat) {
     return a + b;
 }
 
+template<typename T, typename UT>
+static inline T sat_sub(T x, T y, bool &sat)
+{
+  UT ux = x;
+  UT uy = y;
+  UT res = ux - uy;
+  sat = false;
+  int sh = sizeof(T) * 8 - 1;
+
+  /* Calculate overflowed result. (Don't change the sign bit of ux) */
+  ux = (ux >> sh) + (((UT)0x1 << sh) - 1);
+
+  /* Force compiler to use cmovns instruction */
+  if ((T) ((ux ^ uy) & (ux ^ res)) < 0) {
+    res = ux;
+    sat = true;
+  }
+
+  return res;
+}
+
 /**
  * Returns val with bits first to last set to the LSBs of bit_val
  *
