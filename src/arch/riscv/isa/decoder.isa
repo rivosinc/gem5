@@ -135,7 +135,7 @@ decode QUADRANT default Unknown::unknown() {
                     return std::make_shared<IllegalInstFault>(
                             "source reg x0", machInst);
                 }
-                Rc1_sd = (int32_t)Rc1_sd + imm;
+                Rc1_ud = (int32_t)(Rc1_ud + imm);
             }});
             0x2: c_li({{
                 imm = CIMM5;
@@ -306,13 +306,18 @@ decode QUADRANT default Unknown::unknown() {
         }
         0x4: decode CFUNCT1 {
             0x0: decode RC2 {
-                0x0: Jump::c_jr({{
-                    if (RC1 == 0) {
-                        return std::make_shared<IllegalInstFault>(
-                                "source reg x0", machInst);
-                    }
-                    NPC = Rc1;
-                }}, IsIndirectControl, IsUncondControl, IsCall);
+                0x0: decode RC1 {
+                    0x1: Jump::c_ret1({{
+                        NPC = Rc1;
+                    }}, IsIndirectControl, IsUncondControl, IsReturn);
+                    default: Jump::c_jr({{
+                        if (RC1 == 0) {
+                            return std::make_shared<IllegalInstFault>(
+                                    "source reg x0", machInst);
+                        }
+                        NPC = Rc1;
+                    }}, IsIndirectControl, IsUncondControl);
+                }
                 default: CROp::c_mv({{
                     if (RC1 == 0) {
                         return std::make_shared<IllegalInstFault>(
@@ -941,13 +946,49 @@ decode QUADRANT default Unknown::unknown() {
         }
 
         0x04: decode FUNCT3 {
+            0x1: decode FS3 {
+                format IOp {
+                    0x00: slli({{
+                        Rd = Rs1 << imm;
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                    0x05: bseti({{
+                        uint64_t index = imm & (64 - 1);
+                        Rd = Rs1 | (UINT64_C(1) << index);
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                    0x09: bclri({{
+                        uint64_t index = imm & (64 - 1);
+                        Rd = Rs1 & (~(UINT64_C(1) << index));
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                    0x0d: binvi({{
+                        uint64_t index = imm & (64 - 1);
+                        Rd = Rs1 ^ (UINT64_C(1) << index);
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                }
+                format ROp {
+                    0x0c: decode RS2 {
+                        0x00: clz({{
+                            Rd = clz64(Rs1);
+                        }});
+                        0x01: ctz({{
+                            Rd = ctz64(Rs1);
+                        }});
+                        0x02: cpop({{
+                            Rd = popCount(Rs1);
+                        }});
+                        0x04: sextb({{
+                            Rd = sext<8>(Rs1_ub);
+                        }});
+                        0x05: sexth({{
+                            Rd = sext<16>(Rs1_uh);
+                        }});
+                    }
+                }
+            }
+
             format IOp {
                 0x0: addi({{
                     Rd_sd = Rs1_sd + imm;
                 }});
-                0x1: slli({{
-                    Rd = Rs1 << imm;
-                }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
                 0x2: slti({{
                     Rd = (Rs1_sd < imm) ? 1 : 0;
                 }});
@@ -957,13 +998,46 @@ decode QUADRANT default Unknown::unknown() {
                 0x4: xori({{
                     Rd = Rs1 ^ imm;
                 }}, uint64_t);
-                0x5: decode SRTYPE {
+                0x5: decode FS3 {
                     0x0: srli({{
                         Rd = Rs1 >> imm;
                     }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
-                    0x1: srai({{
+                    0x5: orcb({{
+                        uint64_t result = 0;
+                        result |= (Rs1<7:0> ? UINT64_C(0xff) : 0x0);
+                        result |= (Rs1<15:8> ? UINT64_C(0xff) : 0x0) << 8;
+                        result |= (Rs1<23:16> ? UINT64_C(0xff) : 0x0) << 16;
+                        result |= (Rs1<31:24> ? UINT64_C(0xff) : 0x0) << 24;
+                        result |= (Rs1<39:32> ? UINT64_C(0xff) : 0x0) << 32;
+                        result |= (Rs1<47:40> ? UINT64_C(0xff) : 0x0) << 40;
+                        result |= (Rs1<55:48> ? UINT64_C(0xff) : 0x0) << 48;
+                        result |= (Rs1<63:56> ? UINT64_C(0xff) : 0x0) << 56;
+                        Rd = result;
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                    0x8: srai({{
                         Rd_sd = Rs1_sd >> imm;
                     }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                    0x9: bexti({{
+                        uint64_t index = imm & (64 - 1);
+                        Rd = (Rs1 >> index) & 0x1;
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                    0xc: rori({{
+                        Rd = (Rs1 >> imm) | (Rs1 << ((64 - imm) & (64 - 1)));
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                    0xd: decode RS2 {
+                        0x18: rev8({{
+                            uint64_t result = 0;
+                            result |=
+                                ((Rs1 & 0xffULL) << 56) | (((Rs1 >> 56) & 0xffULL));
+                            result |=
+                                (((Rs1 >> 8) & 0xffULL) << 48) | (((Rs1 >> 48) & 0xffULL) << 8);
+                            result |=
+                                (((Rs1 >> 16) & 0xffULL) << 40) | (((Rs1 >> 40) & 0xffULL) << 16);
+                            result |=
+                                (((Rs1 >> 24) & 0xffULL) << 32) | (((Rs1 >> 32) & 0xffULL) << 24);
+                            Rd = result;
+                        }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT6; }});
+                    }
                 }
                 0x6: ori({{
                     Rd = Rs1 | imm;
@@ -981,17 +1055,36 @@ decode QUADRANT default Unknown::unknown() {
         0x06: decode FUNCT3 {
             format IOp {
                 0x0: addiw({{
-                    Rd_sd = Rs1_sw + imm;
-                }}, int32_t);
-                0x1: slliw({{
-                    Rd_sd = Rs1_sw << imm;
-                }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT5; }});
-                0x5: decode SRTYPE {
+                    Rd_sd = (int32_t)(Rs1_sd + imm);
+                }});
+                0x1: decode FS3 {
+                    0x0: slliw({{
+                        Rd_sd = Rs1_sw << imm;
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT5; }});
+                    0x1: slliuw({{
+                        Rd = ((uint64_t)(Rs1_uw)) << imm;
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT5; }});
+                    0xc: decode FS2 {
+                        0x0: clzw({{
+                            Rd = clz32(Rs1);
+                        }});
+                        0x1: ctzw({{
+                            Rd = ctz32(Rs1);
+                        }});
+                        0x2: cpopw({{
+                            Rd = popCount(Rs1<31:0>);
+                        }});
+                    }
+                }
+                0x5: decode FS3 {
                     0x0: srliw({{
                         Rd_sd = (int32_t)(Rs1_uw >> imm);
                     }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT5; }});
-                    0x1: sraiw({{
+                    0x8: sraiw({{
                         Rd_sd = Rs1_sw >> imm;
+                    }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT5; }});
+                    0xc: roriw({{
+                        Rd = (int32_t) ((Rs1_uw >> imm) | (Rs1_uw << ((32 - imm) & (32 - 1))));
                     }}, imm_type = uint64_t, imm_code = {{ imm = SHAMT5; }});
                 }
             }
@@ -1536,6 +1629,31 @@ decode QUADRANT default Unknown::unknown() {
                         Rd = negate ? ~res + (Rs1_sd*Rs2_sd == 0 ? 1 : 0)
                                     : res;
                     }}, IntMultOp);
+                    0x5: clmul({{
+                        uint64_t result = 0;
+                        for (int i = 0; i < 64; i++) {
+                            if ((Rs2 >> i) & 1) {
+                                result ^= Rs1 << i;
+                            }
+                        }
+                        Rd = result;
+                    }});
+                    0x14: bset({{
+                        Rs2 &= (64 - 1);
+                        Rd = Rs1 | (UINT64_C(1) << Rs2);
+                    }});
+                    0x24: bclr({{
+                        Rs2 &= (64 - 1);
+                        Rd = Rs1 & (~(UINT64_C(1) << Rs2));
+                    }});
+                    0x30: rol({{
+                        int shamt = Rs2 & (64 - 1);
+                        Rd = (Rs1 << shamt) | (Rs1 >> ((64 - shamt) & (64 - 1)));
+                    }});
+                    0x34: binv({{
+                        Rs2 &= (64 - 1);
+                        Rd = Rs1 ^ (UINT64_C(1) << Rs2);
+                    }});
                 }
                 0x2: decode FUNCT7 {
                     0x0: slt({{
@@ -1561,6 +1679,18 @@ decode QUADRANT default Unknown::unknown() {
                                        carry;
                         Rd = negate ? ~res + (Rs1_sd*Rs2 == 0 ? 1 : 0) : res;
                     }}, IntMultOp);
+                    0x5: clmulr({{
+                        uint64_t result = 0;
+                        for (int i = 0; i < 64; i++) {
+                            if ((Rs2 >> i) & 1) {
+                                result ^= Rs1 >> (64-i-1);
+                            }
+                        }
+                        Rd = result;
+                    }});
+                    0x10: sh1add({{
+                        Rd = (Rs1 << 1) + Rs2;
+                    }});
                 }
                 0x3: decode FUNCT7 {
                     0x0: sltu({{
@@ -1581,6 +1711,15 @@ decode QUADRANT default Unknown::unknown() {
 
                         Rd = hi + (mid1 >> 32) + (mid2 >> 32) + carry;
                     }}, IntMultOp);
+                    0x5: clmulh({{
+                        uint64_t result = 0;
+                        for (int i = 1; i < 64; i++) {
+                            if ((Rs2 >> i) & 1) {
+                                result ^= (Rs1 >> (64-i));
+                            }
+                        }
+                        Rd = result;
+                    }});
                 }
                 0x4: decode FUNCT7 {
                     0x0: xor({{
@@ -1597,6 +1736,15 @@ decode QUADRANT default Unknown::unknown() {
                             Rd_sd = Rs1_sd/Rs2_sd;
                         }
                     }}, IntDivOp);
+                    0x5: min({{
+                        Rd = (((int64_t) Rs1) < ((int64_t) Rs2)) ? Rs1 : Rs2;
+                    }});
+                    0x10: sh2add({{
+                        Rd = (Rs1 << 2) + Rs2;
+                    }});
+                    0x20: xnor({{
+                        Rd = ~(Rs1 ^ Rs2);
+                    }});
                 }
                 0x5: decode FUNCT7 {
                     0x0: srl({{
@@ -1611,6 +1759,17 @@ decode QUADRANT default Unknown::unknown() {
                     }}, IntDivOp);
                     0x20: sra({{
                         Rd_sd = Rs1_sd >> Rs2<5:0>;
+                    }});
+                    0x5: minu({{
+                        Rd = Rs1 < Rs2 ? Rs1 : Rs2;
+                    }});
+                    0x24: bext({{
+                        Rs2 &= (64 - 1);
+                        Rd = (Rs1 >> Rs2) & 0x1;
+                    }});
+                    0x30: ror({{
+                        int shamt = Rs2 & (64 - 1);
+                        Rd = (Rs1 >> shamt) | (Rs1 << ((64 - shamt) & (64 - 1)));
                     }});
                 }
                 0x6: decode FUNCT7 {
@@ -1628,6 +1787,15 @@ decode QUADRANT default Unknown::unknown() {
                             Rd = Rs1_sd%Rs2_sd;
                         }
                     }}, IntDivOp);
+                    0x5: max({{
+                        Rd = (((int64_t) Rs1) > ((int64_t) Rs2)) ? Rs1 : Rs2;
+                    }});
+                    0x10: sh3add({{
+                        Rd = (Rs1 << 3) + Rs2;
+                    }});
+                    0x20: orn({{
+                        Rd = Rs1 | (~Rs2);
+                    }});
                 }
                 0x7: decode FUNCT7 {
                     0x0: and({{
@@ -1640,6 +1808,12 @@ decode QUADRANT default Unknown::unknown() {
                             Rd = Rs1%Rs2;
                         }
                     }}, IntDivOp);
+                    0x5: maxu({{
+                        Rd = Rs1 > Rs2 ? Rs1 : Rs2;
+                    }});
+                    0x20: andn({{
+                        Rd = Rs1 & (~Rs2);
+                    }});
                 }
             }
         }
@@ -1657,23 +1831,45 @@ decode QUADRANT default Unknown::unknown() {
                     0x1: mulw({{
                         Rd_sd = (int32_t)(Rs1_sw*Rs2_sw);
                     }}, IntMultOp);
+                    0x4: adduw({{
+                        Rd = Rs1_uw + Rs2;
+                    }});
                     0x20: subw({{
                         Rd_sd = Rs1_sw - Rs2_sw;
                     }});
                 }
-                0x1: sllw({{
-                    Rd_sd = Rs1_sw << Rs2<4:0>;
-                }});
-                0x4: divw({{
-                    if (Rs2_sw == 0) {
-                        Rd_sd = -1;
-                    } else if (Rs1_sw == std::numeric_limits<int32_t>::min()
-                            && Rs2_sw == -1) {
-                        Rd_sd = std::numeric_limits<int32_t>::min();
-                    } else {
-                        Rd_sd = Rs1_sw/Rs2_sw;
-                    }
-                }}, IntDivOp);
+                0x1: decode FUNCT7 {
+                    0x0: sllw({{
+                        Rd_sd = Rs1_sw << Rs2<4:0>;
+                    }});
+                    0x30: rolw({{
+                        int shamt = Rs2 & (32 - 1);
+                        Rd = (int32_t) ((Rs1_uw << shamt) | (Rs1_uw >> ((32 - shamt) & (32 - 1))));
+                    }});
+                }
+                0x2: decode FUNCT7 {
+                    0x10: sh1adduw({{
+                        Rd = (((uint64_t)Rs1_uw) << 1) + Rs2;
+                    }});
+                }
+                0x4: decode FUNCT7 {
+                    0x1: divw({{
+                        if (Rs2_sw == 0) {
+                            Rd_sd = -1;
+                        } else if (Rs1_sw == std::numeric_limits<int32_t>::min()
+                                && Rs2_sw == -1) {
+                            Rd_sd = std::numeric_limits<int32_t>::min();
+                        } else {
+                            Rd_sd = Rs1_sw/Rs2_sw;
+                        }
+                    }}, IntDivOp);
+                    0x4: zexth ({{
+                        Rd = Rs1_uh;
+                    }});
+                    0x10: sh2adduw({{
+                        Rd = (((uint64_t)Rs1_uw) << 2) + Rs2;
+                    }});
+                }
                 0x5: decode FUNCT7 {
                     0x0: srlw({{
                         Rd_sd = (int32_t)(Rs1_uw >> Rs2<4:0>);
@@ -1688,17 +1884,26 @@ decode QUADRANT default Unknown::unknown() {
                     0x20: sraw({{
                         Rd_sd = Rs1_sw >> Rs2<4:0>;
                     }});
+                    0x30: rorw({{
+                        int shamt = Rs2 & (32 - 1);
+                        Rd = (int32_t) ((Rs1_uw >> shamt) | (Rs1_uw << ((32 - shamt) & (32 - 1))));
+                    }});
                 }
-                0x6: remw({{
-                    if (Rs2_sw == 0) {
-                        Rd_sd = Rs1_sw;
-                    } else if (Rs1_sw == std::numeric_limits<int32_t>::min()
-                            && Rs2_sw == -1) {
-                        Rd_sd = 0;
-                    } else {
-                        Rd_sd = Rs1_sw%Rs2_sw;
-                    }
-                }}, IntDivOp);
+                0x6:  decode FUNCT7 {
+                    0x1: remw({{
+                        if (Rs2_sw == 0) {
+                            Rd_sd = Rs1_sw;
+                        } else if (Rs1_sw == std::numeric_limits<int32_t>::min()
+                                && Rs2_sw == -1) {
+                            Rd_sd = 0;
+                        } else {
+                            Rd_sd = Rs1_sw%Rs2_sw;
+                        }
+                    }}, IntDivOp);
+                    0x10: sh3adduw({{
+                        Rd = (((uint64_t)Rs1_uw) << 3) + Rs2;
+                    }});
+                }
                 0x7: remuw({{
                     if (Rs2_uw == 0) {
                         Rd_sd = (int32_t)Rs1_uw;
@@ -1849,17 +2054,20 @@ decode QUADRANT default Unknown::unknown() {
                 }}, FloatDivOp);
                 0x10: decode ROUND_MODE {
                     0x0: fsgnj_s({{
-                        Fd_bits = boxF32(insertBits(unboxF32(Fs2_bits), 30, 0,
-                                                    unboxF32(Fs1_bits)));
+                        auto sign = bits(unboxF32(Fs2_bits), 31);
+                        Fd_bits = boxF32(insertBits(unboxF32(Fs1_bits), 31,
+                                                    sign));
                         }}, FloatMiscOp);
                     0x1: fsgnjn_s({{
-                        Fd_bits = boxF32(insertBits(unboxF32(~Fs2_bits), 30, 0,
-                                                    unboxF32(Fs1_bits)));
+                        auto sign = ~bits(unboxF32(Fs2_bits), 31);
+                        Fd_bits = boxF32(insertBits(unboxF32(Fs1_bits), 31,
+                                                    sign));
                         }}, FloatMiscOp);
                     0x2: fsgnjx_s({{
-                        Fd_bits = boxF32(insertBits(
-                                    unboxF32(Fs1_bits) ^ unboxF32(Fs2_bits),
-                                    30, 0, unboxF32(Fs1_bits)));
+                        auto sign = bits(
+                            unboxF32(Fs1_bits) ^ unboxF32(Fs2_bits), 31);
+                        Fd_bits = boxF32(insertBits(unboxF32(Fs1_bits), 31,
+                                                    sign));
                         }}, FloatMiscOp);
                 }
                 0x11: decode ROUND_MODE {
@@ -2083,10 +2291,11 @@ decode QUADRANT default Unknown::unknown() {
                 }
                 0x70: decode ROUND_MODE {
                     0x0: fmv_x_s({{
-                        Rd = (uint32_t)Fs1_bits;
-                        if ((Rd&0x80000000) != 0) {
-                            Rd |= (0xFFFFFFFFULL << 32);
+                        uint64_t result = (uint32_t)Fs1_bits;
+                        if ((result&0x80000000) != 0) {
+                            result |= (0xFFFFFFFFULL << 32);
                         }
+                        Rd = result;
                     }}, FloatCvtOp);
                     0x1: fclass_s({{
                         Rd = f32_classify(f32(freg(Fs1_bits)));
@@ -2121,7 +2330,18 @@ decode QUADRANT default Unknown::unknown() {
                 0x09: VectorVdVs2Vs1Op::vand_vv({{
                     Vd_vc[regElemID] = Vs2_vc[regElemID] & Vs1_vc[regElemID];
                 }});
-//                0x11: VectorVdVs2Vs1Op::vmadc_vv();
+                0x11: decode RL {
+                    0x0: VectorOPIVVMaskCarryOp::vmadc_vvm({{
+                        __uint128_t result =
+                            (((__uint128_t) Vs1_vc[regElemID] + Vs2_vc[regElemID] + bits(vmask, regElemID, regElemID)) >> (sewb * 8)) & 0x1;
+                    }});
+                    0x1: VectorVdMaskVs2Vs1Op::vmadc_vv({{
+                        // This op is unmasked so ignore the borrow in
+                        carryOrBorrowIn = 0;
+                        uint8_t result =
+                            (((__uint128_t)Vs2_vc[regElemID] + Vs1_vc[regElemID] + carryOrBorrowIn) >> (sewb * 8)) & 0x1u;
+                    }});
+                }
                 0x07: VectorVdVs2Vs1Op::vmax_vv({{
                     int64_t src1 = sext(Vs1_vc[regElemID], sewb * 8);
                     int64_t src2 = sext(Vs2_vc[regElemID], sewb * 8);
@@ -2154,11 +2374,26 @@ decode QUADRANT default Unknown::unknown() {
                         Vd_vc[regElemID] = Vs2_vc[regElemID];
                     }
                 }});
+                0x10: VectorOPIVVCarryOp::vadc_vvm({{
+                    Vd_vc[regElemID] =
+                        (__uint128_t)((Vs1_vc[regElemID]) + (Vs2_vc[regElemID]) + bits(vmask, regElemID, regElemID));
+                }});
                 0x12: VectorOPIVVCarryOp::vsbc_vvm({{
                     Vd_vc[regElemID] =
                         ((__uint128_t)Vs2_vc[regElemID] - Vs1_vc[regElemID] - bits(vmask, regElemID, regElemID));
                 }});
-//                0x13: VectorVdVs2Vs1Op::vmsbc_vv()
+                0x13: decode RL {
+                    0x0: VectorOPIVVMaskCarryOp::vmsbc_vvm({{
+                        __uint128_t result =
+                            (((__uint128_t) Vs2_vc[regElemID] - Vs1_vc[regElemID] - bits(vmask, regElemID, regElemID)) >> (sewb * 8)) & 0x1;
+                    }});
+                    0x1: VectorVdMaskVs2Vs1Op::vmsbc_vv({{
+                        // This op is unmasked so ignore the borrow in
+                        carryOrBorrowIn = 0;
+                        uint8_t result =
+                            (((__uint128_t)Vs2_vc[regElemID] - Vs1_vc[regElemID] - carryOrBorrowIn) >> (sewb * 8)) & 0x1u;
+                    }});
+                }
                 0x17: decode RL {
                     0x0: VectorOPIVVCarryOp::vmerge_vvm({{
                         Vd_vc[regElemID] = bits(vmask, regElemID, regElemID) ? Vs1_vc[regElemID] : Vs2_vc[regElemID];
@@ -2417,12 +2652,12 @@ decode QUADRANT default Unknown::unknown() {
 
                     switch(sewb) {
                         case 4:
-                            fd = freg(f32_sub(f32(freg(Vs1_boxed_element)),
-                                    f32(freg(Vs2_boxed_element))));
+                            fd = freg(f32_sub(f32(freg(Vs2_boxed_element)),
+                                    f32(freg(Vs1_boxed_element))));
                             break;
                         case 8:
-                            fd = freg(f64_sub(f64(freg(Vs1_boxed_element)),
-                                    f64(freg(Vs2_boxed_element))));
+                            fd = freg(f64_sub(f64(freg(Vs2_boxed_element)),
+                                    f64(freg(Vs1_boxed_element))));
                             break;
                         default:
                             printf("ERROR: unsupported sewb %zu\n", sewb);
@@ -2431,7 +2666,218 @@ decode QUADRANT default Unknown::unknown() {
 
                     Vd_vc[regElemID] = fd.v;
                 }});
+                0x04: VectorOPFVVOp::vfmin_vv({{
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_min(f32(freg(Vs2_boxed_element)),
+                                    f32(freg(Vs1_boxed_element))));
+                            break;
+                        case 8:
+                            fd = freg(f64_min(f64(freg(Vs2_boxed_element)),
+                                    f64(freg(Vs1_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x06: VectorOPFVVOp::vfmax_vv({{
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_max(f32(freg(Vs2_boxed_element)),
+                                    f32(freg(Vs1_boxed_element))));
+                            break;
+                        case 8:
+                            fd = freg(f64_max(f64(freg(Vs2_boxed_element)),
+                                    f64(freg(Vs1_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x08: VectorOPFVVOp::vfsgnj_vv({{
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(fsgnj32(freg(Vs2_boxed_element),
+                                    freg(Vs1_boxed_element), false, false));
+                            break;
+                        case 8:
+                            fd = freg(fsgnj64(freg(Vs2_boxed_element),
+                                    freg(Vs1_boxed_element), false, false));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x09: VectorOPFVVOp::vfsgnjn_vv({{
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(fsgnj32(freg(Vs2_boxed_element),
+                                    freg(Vs1_boxed_element), true, false));
+                            break;
+                        case 8:
+                            fd = freg(fsgnj64(freg(Vs2_boxed_element),
+                                    freg(Vs1_boxed_element), true, false));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x0a: VectorOPFVVOp::vfsgnjx_vv({{
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(fsgnj32(freg(Vs2_boxed_element),
+                                    freg(Vs1_boxed_element), false, true));
+                            break;
+                        case 8:
+                            fd = freg(fsgnj64(freg(Vs2_boxed_element),
+                                    freg(Vs1_boxed_element), false, true));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x10: VectorVWFUNARY0Op::vfmv_f_s({{
+                    uint64_t result = 0;
+                    switch(sewb) {
+                        case 4:
+                          result = boxF(Vs2_container.as<uint32_t>()[0], sewb);
+                          break;
+                        case 8:
+                          result = boxF(Vs2_container.as<uint64_t>()[0], sewb);
+                          break;
+                    }
+
+                    Fd_bits = result;
+                }});
                 0x12: decode VS1 {
+                    0x0: VectorVFUNARY0Op::vfcvt_xu_f_v({{
+                        softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                        uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                        switch(sewb) {
+                            case 4:
+                                Vd_vc[regElemID] =
+                                    f32_to_ui32(f32(freg(Vs2_boxed_element)),
+                                                softfloat_roundingMode, true);
+                                break;
+                            case 8:
+                                Vd_vc[regElemID] =
+                                    f64_to_ui64(f64(freg(Vs2_boxed_element)),
+                                                softfloat_roundingMode, true);
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+                    }});
+                    0x1: VectorVFUNARY0Op::vfcvt_x_f_v({{
+                        softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                        uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                        switch(sewb) {
+                            case 4:
+                                Vd_vc[regElemID] =
+                                    f32_to_i32(f32(freg(Vs2_boxed_element)),
+                                                softfloat_roundingMode, true);
+                                break;
+                            case 8:
+                                Vd_vc[regElemID] =
+                                    f64_to_i64(f64(freg(Vs2_boxed_element)),
+                                                softfloat_roundingMode, true);
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+                    }});
+                    0x2: VectorVFUNARY0Op::vfcvt_f_xu_v({{
+                        softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                        freg_t fd;
+                        switch(sewb) {
+                            case 4:
+                                fd = freg(ui32_to_f32(Vs2[regElemID]));
+                                break;
+                            case 8:
+                                fd = freg(ui64_to_f64(Vs2[regElemID]));
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+
+                        Vd_vc[regElemID] = fd.v;
+                    }});
+                    0x3: VectorVFUNARY0Op::vfcvt_f_x_v({{
+                        softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                        freg_t fd;
+                        switch(sewb) {
+                            case 4:
+                                fd = freg(i32_to_f32(Vs2[regElemID]));
+                                break;
+                            case 8:
+                                fd = freg(i64_to_f64(Vs2[regElemID]));
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+
+                        Vd_vc[regElemID] = fd.v;
+                    }});
+                    0x6: VectorVFUNARY0Op::vfcvt_rtz_xu_f_v({{
+                        uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                        switch(sewb) {
+                            case 4:
+                                Vd_vc[regElemID] =
+                                    f32_to_ui32(f32(freg(Vs2_boxed_element)),
+                                                softfloat_round_minMag, true);
+                                break;
+                            case 8:
+                                Vd_vc[regElemID] =
+                                    f64_to_ui64(f64(freg(Vs2_boxed_element)),
+                                                softfloat_round_minMag, true);
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+                    }});
                     0x7: VectorVFUNARY0Op::vfcvt_rtz_x_f_v({{
                         uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
 
@@ -2459,6 +2905,128 @@ decode QUADRANT default Unknown::unknown() {
                         Vd_vc[destRegElemID] = fd.v;
                     }});
                 }
+                0x13: decode VS1 {
+                    0x0: VectorVFUNARY0Op::vfsqrt_v({{
+                        softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                        freg_t fd;
+                        uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                        switch(sewb) {
+                            case 4:
+                                fd = freg(f32_sqrt(f32(freg(Vs2_boxed_element))));
+                                break;
+                            case 8:
+                                fd = freg(f64_sqrt(f64(freg(Vs2_boxed_element))));
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+
+                        Vd_vc[regElemID] = fd.v;
+                    }});
+                    0x4: VectorVFUNARY0Op::vfrsqrt7_v({{
+                        softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                        freg_t fd;
+                        uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                        switch(sewb) {
+                            case 4:
+                                fd = freg(f32_rsqrte7(f32(freg(Vs2_boxed_element))));
+                                break;
+                            case 8:
+                                fd = freg(f64_rsqrte7(f64(freg(Vs2_boxed_element))));
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+
+                        Vd_vc[regElemID] = fd.v;
+                    }});
+                    0x5: VectorVFUNARY0Op::vfreq7_v({{
+                        softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                        freg_t fd;
+                        uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                        switch(sewb) {
+                            case 4:
+                                fd = freg(f32_recip7(f32(freg(Vs2_boxed_element))));
+                                break;
+                            case 8:
+                                fd = freg(f64_recip7(f64(freg(Vs2_boxed_element))));
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+
+                        Vd_vc[regElemID] = fd.v;
+                    }});
+                    0x10: VectorVFUNARY0Op::vfclass_v({{
+                        softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                        freg_t fd;
+                        uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                        switch(sewb) {
+                            case 4:
+                                fd = freg(f32_classify(f32(freg(Vs2_boxed_element))));
+                                break;
+                            case 8:
+                                fd = freg(f64_classify(f64(freg(Vs2_boxed_element))));
+                                break;
+                            default:
+                                printf("ERROR: unsupported sewb %zu\n", sewb);
+                                exit(1);
+                        }
+
+                        Vd_vc[regElemID] = fd.v;
+                    }});
+                }
+                0x18: VectorFloatCompareVVOp::vmfeq_vv({{
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vs1_boxed_element =
+                        boxF(Vs1_unboxed[regElemID], sewb);
+
+                    uint8_t result = 0;
+
+                    switch(sewb) {
+                        case 4:
+                            result = f32_eq(f32(freg(Vs2_boxed_element)),
+                                            f32(freg(Vs1_boxed_element)));
+                            break;
+                        case 8:
+                            result = f64_eq(f64(freg(Vs2_boxed_element)),
+                                            f64(freg(Vs1_boxed_element)));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+                }});
+                0x19: VectorFloatCompareVVOp::vmfle_vv({{
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vs1_boxed_element =
+                        boxF(Vs1_unboxed[regElemID], sewb);
+
+                    uint8_t result = 0;
+
+                    switch(sewb) {
+                        case 4:
+                            result = f32_le(f32(freg(Vs2_boxed_element)),
+                                            f32(freg(Vs1_boxed_element)));
+                            break;
+                        case 8:
+                            result = f64_le(f64(freg(Vs2_boxed_element)),
+                                            f64(freg(Vs1_boxed_element)));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+                }});
                 0x1b: VectorFloatCompareVVOp::vmflt_vv({{
                     uint64_t Vs2_boxed_element =
                         boxF(Vs2_unboxed[regElemID], sewb);
@@ -2481,7 +3049,73 @@ decode QUADRANT default Unknown::unknown() {
                             exit(1);
                     }
                 }});
-                0x2a: VectorVdVs2Vs1Op::vfmsub_vv({{
+                0x1c: VectorFloatCompareVVOp::vmfne_vv({{
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vs1_boxed_element =
+                        boxF(Vs1_unboxed[regElemID], sewb);
+
+                    uint8_t result = 0;
+
+                    switch(sewb) {
+                        case 4:
+                            result = !f32_eq(f32(freg(Vs2_boxed_element)),
+                                            f32(freg(Vs1_boxed_element)));
+                            break;
+                        case 8:
+                            result = !f64_eq(f64(freg(Vs2_boxed_element)),
+                                            f64(freg(Vs1_boxed_element)));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+                }});
+                0x1d: VectorFloatCompareVVOp::vmfgt_vv({{
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vs1_boxed_element =
+                        boxF(Vs1_unboxed[regElemID], sewb);
+
+                    uint8_t result = 0;
+
+                    switch(sewb) {
+                        case 4:
+                            result = f32_lt(f32(freg(Vs1_boxed_element)),
+                                            f32(freg(Vs2_boxed_element)));
+                            break;
+                        case 8:
+                            result = f64_lt(f64(freg(Vs1_boxed_element)),
+                                            f64(freg(Vs2_boxed_element)));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+                }});
+                0x1f: VectorFloatCompareVVOp::vmfge_vv({{
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vs1_boxed_element =
+                        boxF(Vs1_unboxed[regElemID], sewb);
+
+                    uint8_t result = 0;
+
+                    switch(sewb) {
+                        case 4:
+                            result = f32_le(f32(freg(Vs1_boxed_element)),
+                                            f32(freg(Vs2_boxed_element)));
+                            break;
+                        case 8:
+                            result = f64_le(f64(freg(Vs1_boxed_element)),
+                                            f64(freg(Vs2_boxed_element)));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+                }});
+                0x20: VectorOPFVVOp::vfdiv_vv({{
                     softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
                     freg_t fd;
                     uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
@@ -2489,16 +3123,250 @@ decode QUADRANT default Unknown::unknown() {
 
                     switch(sewb) {
                         case 4:
+                            fd = freg(f32_div(f32(freg(Vs2_boxed_element)),
+                                    f32(freg(Vs1_boxed_element))));
+                            break;
+                        case 8:
+                            fd = freg(f64_div(f64(freg(Vs2_boxed_element)),
+                                    f64(freg(Vs1_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x24: VectorOPFVVOp::vfmul_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mul(f32(freg(Vs1_boxed_element)),
+                                    f32(freg(Vs2_boxed_element))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mul(f64(freg(Vs1_boxed_element)),
+                                    f64(freg(Vs2_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x28: VectorVdVs2Vs1Op::vfmadd_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+                    uint64_t Vd_boxed_element = boxF(Vd_vc[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
                             fd =
-                                freg(f32_mulAdd(f32(Vd_vc[regElemID]),
+                                freg(f32_mulAdd(f32(freg(Vd_boxed_element)),
+                                                f32(freg(Vs1_boxed_element)),
+                                                f32(freg(Vs2_boxed_element))));
+                            break;
+                        case 8:
+                            fd =
+                                freg(f64_mulAdd(f64(freg(Vd_boxed_element)),
+                                                f64(freg(Vs1_boxed_element)),
+                                                f64(freg(Vs2_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x29: VectorVdVs2Vs1Op::vfnmadd_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+                    uint64_t Vd_boxed_element = boxF(Vd_vc[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd =
+                                freg(f32_mulAdd(f32(freg(Vd_boxed_element ^ F32_SIGN)),
                                                 f32(freg(Vs1_boxed_element)),
                                                 f32(freg(Vs2_boxed_element ^ F32_SIGN))));
                             break;
                         case 8:
                             fd =
-                                freg(f64_mulAdd(f64(Vd_vc[regElemID]),
+                                freg(f64_mulAdd(f64(freg(Vd_boxed_element ^ F64_SIGN)),
                                                 f64(freg(Vs1_boxed_element)),
                                                 f64(freg(Vs2_boxed_element ^ F64_SIGN))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2a: VectorVdVs2Vs1Op::vfmsub_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+                    uint64_t Vd_boxed_element = boxF(Vd_vc[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd =
+                                freg(f32_mulAdd(f32(freg(Vd_boxed_element)),
+                                                f32(freg(Vs1_boxed_element)),
+                                                f32(freg(Vs2_boxed_element ^ F32_SIGN))));
+                            break;
+                        case 8:
+                            fd =
+                                freg(f64_mulAdd(f64(freg(Vd_boxed_element)),
+                                                f64(freg(Vs1_boxed_element)),
+                                                f64(freg(Vs2_boxed_element ^ F64_SIGN))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2b: VectorVdVs2Vs1Op::vfnmsub_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+                    uint64_t Vd_boxed_element = boxF(Vd_vc[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd =
+                                freg(f32_mulAdd(f32(freg(Vd_boxed_element ^ F32_SIGN)),
+                                                f32(freg(Vs1_boxed_element)),
+                                                f32(freg(Vs2_boxed_element))));
+                            break;
+                        case 8:
+                            fd =
+                                freg(f64_mulAdd(f64(freg(Vd_boxed_element ^ F64_SIGN)),
+                                                f64(freg(Vs1_boxed_element)),
+                                                f64(freg(Vs2_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2c: VectorVdVs2Vs1Op::vfmacc_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+                    uint64_t Vd_boxed_element = boxF(Vd_vc[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd =
+                                freg(f32_mulAdd(f32(freg(Vs2_boxed_element)),
+                                                f32(freg(Vs1_boxed_element)),
+                                                f32(freg(Vd_boxed_element))));
+                            break;
+                        case 8:
+                            fd =
+                                freg(f64_mulAdd(f64(freg(Vs2_boxed_element)),
+                                                f64(freg(Vs1_boxed_element)),
+                                                f64(freg(Vd_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2d: VectorVdVs2Vs1Op::vfnmacc_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+                    uint64_t Vd_boxed_element = boxF(Vd_vc[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd =
+                                freg(f32_mulAdd(f32(freg(Vs2_boxed_element ^ F32_SIGN)),
+                                                f32(freg(Vs1_boxed_element)),
+                                                f32(freg(Vd_boxed_element ^ F32_SIGN))));
+                            break;
+                        case 8:
+                            fd =
+                                freg(f64_mulAdd(f64(freg(Vs2_boxed_element ^ F64_SIGN)),
+                                                f64(freg(Vs1_boxed_element)),
+                                                f64(freg(Vd_boxed_element ^ F64_SIGN))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2e: VectorVdVs2Vs1Op::vfmsacc_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+                    uint64_t Vd_boxed_element = boxF(Vd_vc[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd =
+                                freg(f32_mulAdd(f32(freg(Vs2_boxed_element)),
+                                                f32(freg(Vs1_boxed_element)),
+                                                f32(freg(Vd_boxed_element ^ F32_SIGN))));
+                            break;
+                        case 8:
+                            fd =
+                                freg(f64_mulAdd(f64(freg(Vs2_boxed_element)),
+                                                f64(freg(Vs1_boxed_element)),
+                                                f64(freg(Vd_boxed_element ^ F64_SIGN))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2f: VectorVdVs2Vs1Op::vfnmsacc_vv({{
+                    softfloat_roundingMode = xc->readMiscReg(MISCREG_FRM);
+                    freg_t fd;
+                    uint64_t Vs1_boxed_element = boxF(Vs1[regElemID], sewb);
+                    uint64_t Vs2_boxed_element = boxF(Vs2[regElemID], sewb);
+                    uint64_t Vd_boxed_element = boxF(Vd_vc[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd =
+                                freg(f32_mulAdd(f32(freg(Vs2_boxed_element ^ F32_SIGN)),
+                                                f32(freg(Vs1_boxed_element)),
+                                                f32(freg(Vd_boxed_element))));
+                            break;
+                        case 8:
+                            fd =
+                                freg(f64_mulAdd(f64(freg(Vs2_boxed_element ^ F64_SIGN)),
+                                                f64(freg(Vs1_boxed_element)),
+                                                f64(freg(Vd_boxed_element))));
                             break;
                         default:
                             printf("ERROR: unsupported sewb %zu\n", sewb);
@@ -2612,8 +3480,29 @@ decode QUADRANT default Unknown::unknown() {
                     0x0: VectorVWXUNARY0Op::vmv_xs({{
                         Rd_ud = Vs2_vc[0];
                     }});
-                    // 0x10: VectorVWXUNARY0Op::vcpop_m();
-                    // 0x11: VectorVWXUNARY0Op::vfirst_m();
+                    0x10: VectorVWXUNARY0MaskOp::vcpop_m({{
+                        Rd_ud = 0;
+                        uint32_t src_mask = Vs2_vc[0];
+                        for (uint32_t i = 0; i < (xc->readMiscReg(MISCREG_VLENB) / sewb); ++i) {
+                            if ((vmask & 1) & (src_mask & 1)) {
+                                ++Rd_ud;
+                            }
+                            vmask >>= 1;
+                            src_mask >>= 1;
+                        }
+                    }});
+                    0x11: VectorVWXUNARY0MaskOp::vfirst_m({{
+                        Rd_ud = -1;
+                        uint32_t src_mask = Vs2_vc[0];
+                        for (uint32_t i = 0; i < (xc->readMiscReg(MISCREG_VLENB) / sewb); ++i) {
+                            if ((vmask & 1) & (src_mask & 1)) {
+                                Rd_ud = i;
+                                break;
+                            }
+                            vmask >>= 1;
+                            src_mask >>= 1;
+                        }
+                    }});
                 }
                 0x12: decode RS1 {
                     0x2: VectorIntegerExtensionOp::vzext_vf8({{
@@ -2635,25 +3524,121 @@ decode QUADRANT default Unknown::unknown() {
                         Vd[VdElemID] = sext(Vs2[Vs2ElemID], eewb * 8);
                     }});
                 }
-                0x14: VectorVMUNARY0Op::vid_v({{
-                    Vd_vc[regElemIdx] = elemIdx;
-                }});
-                0x19: VectorMaskRegisterOp::vmand_mm({{
+                0x14: decode RS1 {
+                    0x01: VectorMaskRegisterVdVs2Op::vmsbf_v({{
+                        uint32_t src_mask = Vs2_vc[0];
+                        uint32_t dst_mask = Vd_vc[0];
+                        // The instruction writes a 1 to all active mask
+                        // elements before the first active source element
+                        // that is a 1, then writes a 0 to that element and
+                        // all following active elements. If there is no set
+                        // bit in the active elements of the source vector,
+                        // then all active elements in the destination are
+                        // written with a 1.
+                        uint8_t current_bit_value = 1;
+
+                        for (uint32_t i = 0; i < (xc->readMiscReg(MISCREG_VLENB) / sewb); ++i) {
+                            if ((vmask & 0x1) == 0) {
+                                vmask >>= 1;
+                                src_mask >>= 1;
+                                continue;
+                            }
+
+                            if ((vmask & 1) & (src_mask & 1)) {
+                                current_bit_value = 0;
+                            }
+
+                            vmask >>= 1;
+                            src_mask >>= 1;
+
+                            dst_mask &= ~(1 << i);
+                            dst_mask |= (current_bit_value << i);
+                        }
+
+                        Vd_vc[0] = dst_mask;
+                    }});
+                    0x02: VectorMaskRegisterVdVs2Op::vmsof_m({{
+                        uint32_t src_mask = Vs2_vc[0];
+                        uint32_t dst_mask = Vd_vc[0];
+
+                        // The vector mask set-only-first
+                        // instruction is similar to set-before-first, except
+                        // it only sets the first element with a bit set, if any.
+
+                        bool saw_first_active_element = false;
+
+                        for (uint32_t i = 0; i < (xc->readMiscReg(MISCREG_VLENB) / sewb); ++i) {
+                            if ((vmask & 0x1) == 0) {
+                                vmask >>= 1;
+                                src_mask >>= 1;
+                                continue;
+                            }
+
+                            dst_mask &= ~(1 << i);
+
+                            if ((src_mask & 0x1) && saw_first_active_element == false) {
+                              dst_mask |= 1 << i;
+                              saw_first_active_element = true;
+                            }
+
+                            vmask >>= 1;
+                            src_mask >>= 1;
+                        }
+
+                        Vd_vc[0] = dst_mask;
+                    }});
+                    0x03: VectorMaskRegisterVdVs2Op::vmsif_v({{
+                        uint32_t src_mask = Vs2_vc[0];
+                        uint32_t dst_mask = Vd_vc[0];
+
+                        // The vector mask set-including first instruction is
+                        // similar to set-before-first, except it also includes
+                        // the element with a set bit.
+                        uint8_t current_bit_value = 1;
+
+                        for (uint32_t i = 0; i < (xc->readMiscReg(MISCREG_VLENB) / sewb); ++i) {
+                            if ((vmask & 0x1) == 0) {
+                                vmask >>= 1;
+                                src_mask >>= 1;
+                                continue;
+                            }
+
+                            dst_mask &= ~(1 << i);
+                            dst_mask |= (current_bit_value << i);
+
+                            if ((vmask & 1) & (src_mask & 1)) {
+                                current_bit_value = 0;
+                            }
+
+                            vmask >>= 1;
+                            src_mask >>= 1;
+                        }
+
+                        Vd_vc[0] = dst_mask;
+                    }});
+                    0x10: VectorVMUNARYVs20Op::viota_m({{
+                        Vd_vc[regElemIdx] = sum_of_active_bits_in_mask;
+                    }});
+                    0x11: VectorVMUNARY0Op::vid_v({{
+                        Vd_vc[regElemIdx] = elemIdx;
+                    }});
+                }
+                0x19: VectorMaskRegisterVdVs2Vs1Op::vmand_mm({{
                     uint8_t result = Vs2_mask_bit & Vs1_mask_bit;
                 }});
-                0x1a: VectorMaskRegisterOp::vmor_mm({{
+                0x1a: VectorMaskRegisterVdVs2Vs1Op::vmor_mm({{
                     uint8_t result = Vs2_mask_bit | Vs1_mask_bit;
                 }});
-                0x1d: VectorMaskRegisterOp::vmnand_mm({{
+                0x1d: VectorMaskRegisterVdVs2Vs1Op::vmnand_mm({{
                     uint8_t result = (~(Vs2_mask_bit & Vs1_mask_bit)) & 0x1;
                 }});
-                0x1e: VectorMaskRegisterOp::vmnor_mm({{
+                0x1e: VectorMaskRegisterVdVs2Vs1Op::vmnor_mm({{
                     uint8_t result = (~(Vs2_mask_bit | Vs1_mask_bit)) & 0x1;
                 }});
-                0x1f: VectorMaskRegisterOp::vmxnor_mm({{
+                0x1f: VectorMaskRegisterVdVs2Vs1Op::vmxnor_mm({{
                     uint8_t result = Vs2_mask_bit == Vs1_mask_bit;
                 }});
-                0x1b: VectorMaskRegisterOp::vmxor_mm({{
+                0x1b: VectorMaskRegisterVdVs2Vs1Op::vmxor_mm({{
                     uint8_t result = Vs2_mask_bit ^ Vs1_mask_bit;
                 }});
                 0x20: VectorVdVs2Vs1Op::vdivu_vv({{
@@ -2755,6 +3740,24 @@ decode QUADRANT default Unknown::unknown() {
                     __int128_t simm = sext<5>(UIMM5);
                     Vd_vc[regElemID] = Vs2_vc[regElemID] + simm;
                 }});
+                0x10: VectorOPIVICarryOp::vadc_vim({{
+                    __int128_t simm = sext<5>(UIMM5);
+                    Vd_vc[regElemID] =
+                        (__uint128_t)((simm) + (Vs2_vc[regElemID]) + bits(vmask, regElemID, regElemID));
+                }});
+                0x11: decode RL {
+                    0x0: VectorOPIVIMaskCarryOp::vmadc_vim({{
+                        uint64_t simm = sext(UIMM5, 5) & mask(sewb * 8);
+                        uint8_t result =
+                            (((__uint128_t) simm + Vs2_vc[regElemID] + bits(vmask, regElemID, regElemID)) >> (sewb * 8)) & 0x1;
+                    }});
+                    0x1: VectorVdMaskOPIVIOp::vmadc_vi({{
+                        // This op is unmasked so ignore the borrow in
+                        uint64_t simm = sext(UIMM5, 5) & mask(sewb * 8);
+                        uint8_t result =
+                            (((__uint128_t)Vs2_vc[regElemID] + simm) >> (sewb * 8)) & 0x1u;
+                    }});
+                }
                 0x17: decode RL {
                     0x0: VectorOPIVICarryOp::vmerge_vim({{
                         __int128_t simm = sext<5>(UIMM5);
@@ -2898,20 +3901,20 @@ decode QUADRANT default Unknown::unknown() {
                     // We can't handle more than 1 destination vector reg yet.
                     assert(_numVecDestRegs == 1);
 
-                    for (size_t regElemID = 0; (regElemID + UIMM5) < num_target_elements_in_reg; ++regElemID) {
-                        Vd_vc[regElemID + UIMM5] = Vs2_vc[regElemID];
+                    if ((regElemID + UIMM5) >= num_target_elements_in_reg) {
+                        continue;
                     }
+
+                    Vd_vc[regElemID + UIMM5] = Vs2_vc[regElemID];
                 }});
                 0x0f: VectorOPIVIOp::vslidedown_vi({{
                     // We can't handle more than 1 destination vector reg yet.
                     assert(_numVecDestRegs == 1);
 
-                    for (size_t regElemID = 0; regElemID < num_target_elements_in_reg; ++regElemID) {
-                        if ((regElemID + UIMM5) < num_target_elements_in_reg) {
-                            Vd_vc[regElemID] = Vs2_vc[regElemID + UIMM5];
-                        } else {
-                            Vd_vc[regElemID] = 0;;
-                        }
+                    if ((regElemID + UIMM5) < num_target_elements_in_reg) {
+                        Vd_vc[regElemID] = Vs2_vc[regElemID + UIMM5];
+                    } else {
+                        Vd_vc[regElemID] = 0;;
                     }
                 }});
                 0x2c: VectorNarrowingVIOp::vnsrl_wi({{
@@ -2949,6 +3952,10 @@ decode QUADRANT default Unknown::unknown() {
                 0x10: VectorOPIVXCarryOp::vadc_vxm({{
                     Vd_vc[regElemID] =
                         (__uint128_t)((Rs1_ud) + (Vs2_vc[regElemID]) + bits(vmask, regElemID, regElemID));
+                }});
+                0x12: VectorOPIVXCarryOp::vsbc_vxm({{
+                    Vd_vc[regElemID] =
+                        ((__uint128_t)Vs2_vc[regElemID] - Rs1_ud - bits(vmask, regElemID, regElemID));
                 }});
                 0x17: decode RL {
                     0x0: VectorOPIVXCarryOp::vmerge_vxm({{
@@ -2990,17 +3997,45 @@ decode QUADRANT default Unknown::unknown() {
                         Vd_vc[regElemID] = Vs2_vc[regElemID];
                     }
                 }});
-                0x13: VectorVdMaskVs2Rs1Op::vmsbc_vx({{
-                    // This op is unmasked so ignore the borrow in
-                    carryOrBorrowIn = 0;
-                    uint8_t result =
-                        (((__uint128_t)Vs2_vc[regElemID] - Rs1_ud - carryOrBorrowIn) >> (sewb * 8)) & 0x1u;
-                }});
+                0x13: decode RL {
+                    0x0: VectorOPIVXMaskCarryOp::vmsbc_vxm({{
+                        __uint128_t result =
+                            (((__uint128_t) Vs2_vc[regElemID] - Rs1_ud - bits(vmask, regElemID, regElemID)) >> (sewb * 8)) & 0x1;
+                    }});
+                    0x1: VectorVdMaskVs2Rs1Op::vmsbc_vx({{
+                        // This op is unmasked so ignore the borrow in
+                        carryOrBorrowIn = 0;
+                        uint8_t result =
+                            (((__uint128_t)Vs2_vc[regElemID] - Rs1_ud - carryOrBorrowIn) >> (sewb * 8)) & 0x1u;
+                    }});
+                }
                 0x0a: VectorVdVs2Rs1Op::vor_vx({{
                     Vd_vc[regElemID] = Vs2_vc[regElemID] | Rs1_ud;
                 }});
                 0x0c: VectorVRGatherVXOp::vrgather_vx({{
                     Vd_vc[regElemID] = result + (Rs1_ud * 0);
+                }});
+                0x0e: VectorVdVs2Rs1Op::vslideup_vx({{
+                    // We can't handle more than 1 destination vector reg yet.
+                    assert(_numVecDestRegs == 1);
+                    __uint128_t target_element_index = (__uint128_t)regElemID + Rs1_ud;
+
+                    if (target_element_index >= num_target_elements_in_reg) {
+                        continue;
+                    }
+
+                    Vd_vc[target_element_index] = Vs2_vc[regElemID];
+                }});
+                0x0f: VectorVdVs2Rs1Op::vslidedown_vx({{
+                    // We can't handle more than 1 destination vector reg yet.
+                    assert(_numVecDestRegs == 1);
+                    __uint128_t source_element_index = (__uint128_t)regElemID + Rs1_ud;
+
+                    if ((source_element_index) < num_target_elements_in_reg) {
+                        Vd_vc[regElemID] = Vs2_vc[source_element_index];
+                    } else {
+                        Vd_vc[regElemID] = 0;;
+                    }
                 }});
                 0x21: VectorVdVs2Rs1Op::vsadd_vx({{
                     bool sat = false;
@@ -3156,10 +4191,18 @@ decode QUADRANT default Unknown::unknown() {
                 0x19: VectorOPIVXMaskOp::vmsne_vx({{
                     uint8_t result = Vs2_vc[regElemID] != Rs1_ud;
                 }});
-                0x11: VectorOPIVXMaskCarryOp::vmadc_vxm({{
-                    __uint128_t result =
-                        (((__uint128_t) Rs1_ud + Vs2_vc[regElemID] + bits(vmask, regElemID, regElemID)) >> (sewb * 8)) & 0x1;
-                }});
+                0x11: decode RL {
+                    0x0: VectorOPIVXMaskCarryOp::vmadc_vxm({{
+                        __uint128_t result =
+                            (((__uint128_t) Rs1_ud + Vs2_vc[regElemID] + bits(vmask, regElemID, regElemID)) >> (sewb * 8)) & 0x1;
+                    }});
+                    0x1: VectorVdMaskVs2Rs1Op::vmadc_vx({{
+                        // This op is unmasked so ignore the borrow in
+                        carryOrBorrowIn = 0;
+                        uint8_t result =
+                            (((__uint128_t)Vs2_vc[regElemID] + Rs1_ud + carryOrBorrowIn) >> (sewb * 8)) & 0x1u;
+                    }});
+                }
             }
             0x5: decode VFUNC_6 { // OPFVF
                 0x00: VectorVdVs2Fs1Op::vfadd_vf({{
@@ -3190,12 +4233,12 @@ decode QUADRANT default Unknown::unknown() {
 
                     switch(sewb) {
                         case 4:
-                            fd = freg(f32_sub(f32(freg(Fs1_bits_ud)),
-                                    f32(freg(Vs2_boxed_element))));
+                            fd = freg(f32_sub(f32(freg(Vs2_boxed_element)),
+                                    f32(freg(Fs1_bits_ud))));
                             break;
                         case 8:
-                            fd = freg(f64_sub(f64(freg(Fs1_bits_ud)),
-                                    f64(freg(Vs2_boxed_element))));
+                            fd = freg(f64_sub(f64(freg(Vs2_boxed_element)),
+                                    f64(freg(Fs1_bits_ud))));
                             break;
                         default:
                             printf("ERROR: unsupported sewb %zu\n", sewb);
@@ -3270,20 +4313,43 @@ decode QUADRANT default Unknown::unknown() {
 
                     Vd_vc[0] = fd.v;
                 }});
-                0x17: VectorVdVs2Fs1Op::vfmv_vf({{
-                    freg_t fd;
+                0x17: decode VM {
+                    0x1: VectorVdVs2Fs1Op::vfmv_vf({{
+                        freg_t fd;
 
-                    if (sewb == 4) {
-                        fd = freg(f32(freg(Fs1_bits_ud)));
-                    } else if (sewb == 8) {
-                        fd = freg(f64(freg(Fs1_bits_ud)));
-                    } else {
-                        printf("ERROR: unsupported sewb %zu\n", sewb);
-                        exit(1);
-                    }
+                        if (sewb == 4) {
+                            fd = freg(f32(freg(Fs1_bits_ud)));
+                        } else if (sewb == 8) {
+                            fd = freg(f64(freg(Fs1_bits_ud)));
+                        } else {
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                        }
 
-                    Vd_vc[regElemID] = fd.v;
-                }});
+                        Vd_vc[regElemID] = fd.v;
+                    }});
+                    0x0: VectorVdVs2Fs1Op::vfmerge_vfm({{
+                        freg_t fd;
+
+                        // # vd[i] = v0.mask[i] ? f[rs1] : vs2[i]
+
+                        if (sewb == 4) {
+                            fd = freg(f32(freg(Fs1_bits_ud)));
+                        } else if (sewb == 8) {
+                            fd = freg(f64(freg(Fs1_bits_ud)));
+                        } else {
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                        }
+
+                        if (bits(vmask, regElemID, regElemID) == 0) {
+                            Vd_vc[regElemID] = Vs2_unboxed[regElemID];
+                        }
+                        else {
+                            Vd_vc[regElemID] = fd.v;
+                        }
+                    }});
+                }
                 0x18: VectorFloatCompareVFOp::vmfeq_vf({{
                     uint64_t Vs2_boxed_element =
                         boxF(Vs2_unboxed[regElemID], sewb);
@@ -3297,6 +4363,66 @@ decode QUADRANT default Unknown::unknown() {
                             break;
                         case 8:
                             result = f64_eq(f64(freg(Vs2_boxed_element)),
+                                            f64(freg(Fs1_bits_ud)));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+                }});
+                0x19: VectorFloatCompareVFOp::vmfle_vf({{
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+
+                    uint8_t result = 0;
+
+                    switch(sewb) {
+                        case 4:
+                            result = f32_le(f32(freg(Vs2_boxed_element)),
+                                            f32(freg(Fs1_bits_ud)));
+                            break;
+                        case 8:
+                            result = f64_le(f64(freg(Vs2_boxed_element)),
+                                            f64(freg(Fs1_bits_ud)));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+                }});
+                0x1b: VectorFloatCompareVFOp::vmflt_vf({{
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+
+                    uint8_t result = 0;
+
+                    switch(sewb) {
+                        case 4:
+                            result = f32_lt(f32(freg(Vs2_boxed_element)),
+                                            f32(freg(Fs1_bits_ud)));
+                            break;
+                        case 8:
+                            result = f64_lt(f64(freg(Vs2_boxed_element)),
+                                            f64(freg(Fs1_bits_ud)));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+                }});
+                0x1c: VectorFloatCompareVFOp::vmfne_vf({{
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+
+                    uint8_t result = 0;
+
+                    switch(sewb) {
+                        case 4:
+                            result = !f32_eq(f32(freg(Vs2_boxed_element)),
+                                            f32(freg(Fs1_bits_ud)));
+                            break;
+                        case 8:
+                            result = !f64_eq(f64(freg(Vs2_boxed_element)),
                                             f64(freg(Fs1_bits_ud)));
                             break;
                         default:
@@ -3344,21 +4470,240 @@ decode QUADRANT default Unknown::unknown() {
                             exit(1);
                     }
                 }});
-                0x2e: VectorVdVs2Fs1Op::vfmsac_vf({{
+                0x20: VectorVdVs2Fs1Op::vfdiv_vf({{
                     freg_t fd;
                     uint64_t Vs2_boxed_element =
                         boxF(Vs2_unboxed[regElemID], sewb);
 
                     switch(sewb) {
                         case 4:
+                            fd = freg(f32_div(f32(freg(Vs2_boxed_element)),
+                                    f32(freg(Fs1_bits_ud))));
+                            break;
+                        case 8:
+                            fd = freg(f64_div(f64(freg(Vs2_boxed_element)),
+                                    f64(freg(Fs1_bits_ud))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x24: VectorVdVs2Fs1Op::vfmul_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mul(f32(freg(Fs1_bits_ud)),
+                                    f32(freg(Vs2_boxed_element))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mul(f64(freg(Fs1_bits_ud)),
+                                    f64(freg(Vs2_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x28: VectorVdVs2Fs1Op::vfmadd_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vd_boxed_element =
+                        boxF(Vd_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mulAdd(f32(freg(Fs1_bits_ud)),
+                                    f32(freg(Vd_boxed_element)),
+                                    f32(freg(Vs2_boxed_element))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mulAdd(f64(freg(Fs1_bits_ud)),
+                                    f64(freg(Vd_boxed_element)),
+                                    f64(freg(Vs2_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x29: VectorVdVs2Fs1Op::vfnmadd_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vd_boxed_element =
+                        boxF(Vd_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mulAdd(f32(freg(Fs1_bits_ud)),
+                                    f32(freg(Vd_boxed_element ^ F32_SIGN)),
+                                    f32(freg(Vs2_boxed_element ^ F32_SIGN))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mulAdd(f64(freg(Fs1_bits_ud)),
+                                    f64(freg(Vd_boxed_element ^ F64_SIGN)),
+                                    f64(freg(Vs2_boxed_element ^ F64_SIGN))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2a: VectorVdVs2Fs1Op::vfmsub_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vd_boxed_element =
+                        boxF(Vd_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mulAdd(f32(freg(Fs1_bits_ud)),
+                                    f32(freg(Vd_boxed_element)),
+                                    f32(freg(Vs2_boxed_element ^ F32_SIGN))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mulAdd(f64(freg(Fs1_bits_ud)),
+                                    f64(freg(Vd_boxed_element)),
+                                    f64(freg(Vs2_boxed_element ^ F64_SIGN))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2b: VectorVdVs2Fs1Op::vfnmsub_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vd_boxed_element =
+                        boxF(Vd_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mulAdd(f32(freg(Fs1_bits_ud)),
+                                    f32(freg(Vd_boxed_element ^ F32_SIGN)),
+                                    f32(freg(Vs2_boxed_element))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mulAdd(f64(freg(Fs1_bits_ud)),
+                                    f64(freg(Vd_boxed_element ^ F64_SIGN)),
+                                    f64(freg(Vs2_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2c: VectorVdVs2Fs1Op::vfmacc_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vd_boxed_element =
+                        boxF(Vd_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
                             fd = freg(f32_mulAdd(f32(freg(Fs1_bits_ud)),
                                     f32(freg(Vs2_boxed_element)),
-                                    f32(Vd_vc[regElemID] ^ F32_SIGN)));
+                                    f32(freg(Vd_boxed_element))));
                             break;
                         case 8:
                             fd = freg(f64_mulAdd(f64(freg(Fs1_bits_ud)),
                                     f64(freg(Vs2_boxed_element)),
-                                    f64(Vd_vc[regElemID] ^ F64_SIGN)));
+                                    f64(freg(Vd_boxed_element))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2d: VectorVdVs2Fs1Op::vfnmacc_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vd_boxed_element =
+                        boxF(Vd_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mulAdd(f32(freg(Fs1_bits_ud)),
+                                    f32(freg(Vs2_boxed_element ^ F32_SIGN)),
+                                    f32(freg(Vd_boxed_element ^ F32_SIGN))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mulAdd(f64(freg(Fs1_bits_ud)),
+                                    f64(freg(Vs2_boxed_element ^ F64_SIGN)),
+                                    f64(freg(Vd_boxed_element ^ F64_SIGN))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2e: VectorVdVs2Fs1Op::vfmsac_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vd_boxed_element =
+                        boxF(Vd_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mulAdd(f32(freg(Fs1_bits_ud)),
+                                    f32(freg(Vs2_boxed_element)),
+                                    f32(freg(Vd_boxed_element ^ F32_SIGN))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mulAdd(f64(freg(Fs1_bits_ud)),
+                                    f64(freg(Vs2_boxed_element)),
+                                    f64(freg(Vd_boxed_element ^ F64_SIGN))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x2f: VectorVdVs2Fs1Op::vfnmsac_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+                    uint64_t Vd_boxed_element =
+                        boxF(Vd_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_mulAdd(f32(freg(Fs1_bits_ud)),
+                                    f32(freg(Vs2_boxed_element ^ F32_SIGN)),
+                                    f32(freg(Vd_boxed_element))));
+                            break;
+                        case 8:
+                            fd = freg(f64_mulAdd(f64(freg(Fs1_bits_ud)),
+                                    f64(freg(Vs2_boxed_element ^ F64_SIGN)),
+                                    f64(freg(Vd_boxed_element))));
                             break;
                         default:
                             printf("ERROR: unsupported sewb %zu\n", sewb);
@@ -3430,6 +4775,90 @@ decode QUADRANT default Unknown::unknown() {
 
                     Vd_vc[regElemID] = fd.v;
                 }});
+                0x06: VectorVdVs2Fs1Op::vfmax_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(f32_max(f32(freg(Vs2_boxed_element)),
+                                    f32(freg(Fs1_bits_ud))));
+                            break;
+                        case 8:
+                            fd = freg(f64_max(f64(freg(Vs2_boxed_element)),
+                                    f64(freg(Fs1_bits_ud))));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x08: VectorVdVs2Fs1Op::vfsgnj_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(fsgnj32(freg(Vs2_boxed_element),
+                                    freg(Fs1_bits_ud), false, false));
+                            break;
+                        case 8:
+                            fd = freg(fsgnj64(freg(Vs2_boxed_element),
+                                    freg(Fs1_bits_ud), false, false));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x09: VectorVdVs2Fs1Op::vfsgnjn_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(fsgnj32(freg(Vs2_boxed_element),
+                                    freg(Fs1_bits_ud), true, false));
+                            break;
+                        case 8:
+                            fd = freg(fsgnj64(freg(Vs2_boxed_element),
+                                    freg(Fs1_bits_ud), true, false));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
+                0x0a: VectorVdVs2Fs1Op::vfsgnjx_vf({{
+                    freg_t fd;
+                    uint64_t Vs2_boxed_element =
+                        boxF(Vs2_unboxed[regElemID], sewb);
+
+                    switch(sewb) {
+                        case 4:
+                            fd = freg(fsgnj32(freg(Vs2_boxed_element),
+                                    freg(Fs1_bits_ud), false, true));
+                            break;
+                        case 8:
+                            fd = freg(fsgnj64(freg(Vs2_boxed_element),
+                                    freg(Fs1_bits_ud), false, true));
+                            break;
+                        default:
+                            printf("ERROR: unsupported sewb %zu\n", sewb);
+                            exit(1);
+                    }
+
+                    Vd_vc[regElemID] = fd.v;
+                }});
                 0x36: VectorWideningVdFs1Vs2Op::vfwsub_wf({{
                     assert(sewb == 4);
 
@@ -3461,7 +4890,7 @@ decode QUADRANT default Unknown::unknown() {
             0x6: decode VFUNC_6 { // OPMVX
                 0x08: VectorVdVs2Rs1Op::vaaddu_vx({{ // OPMVX
                     __uint128_t val =
-                        Vs2_vc[regElemID] + (Rs1_ud & mask(sewb * 8));
+                        (__uint128_t) Vs2_vc[regElemID] + (Rs1_ud & mask(sewb * 8));
                     roundUnsignedInteger(val, xc->readMiscReg(MISCREG_VXRM), 1);
                     Vd_vc[regElemID] = val >> 1;
                 }});
@@ -3476,10 +4905,19 @@ decode QUADRANT default Unknown::unknown() {
                     Vd_vc[0] = Rs1_ud;
                 }});
                 0x0a: VectorVdVs2Rs1Op::vasubu_vx({{ // OPMVX
-                    __uint128_t val =
-                        Vs2_vc[regElemID] - (Rs1_ud & mask(sewb * 8));
+                    __uint128_t minuend = Vs2_vc[regElemID];
+                    __uint128_t subtrahend = Rs1_ud & mask(sewb * 8);
+
+                    __uint128_t val = minuend - subtrahend;
                     roundUnsignedInteger(val, xc->readMiscReg(MISCREG_VXRM), 1);
-                    Vd_vc[regElemID] = val >> 1;
+
+                    // https://github.com/riscv/riscv-v-spec/issues/808
+                    if (minuend < subtrahend) {
+                    __int128_t signed_val = sext(val, sewb * 8);
+                      Vd_vc[regElemID] = signed_val >> 1;
+                    } else {
+                      Vd_vc[regElemID] = val >> 1;
+                    }
                 }});
                 0x0b: VectorVdVs2Rs1Op::vasub_vx({{ // OPMVX
                     __int128_t src1 = sext(Rs1_ud, sewb * 8);
@@ -3684,18 +5122,86 @@ decode QUADRANT default Unknown::unknown() {
             }
         }
 
-        0x19: decode FUNCT3 {
-            0x0: Jump::jalr({{
-                Rd = NPC;
-                NPC = (imm + Rs1) & (~0x1);
-            }}, IsIndirectControl, IsUncondControl, IsCall);
+        0x19: decode RD {
+            0x0: decode RS1 {
+                0x1: decode FUNCT3 {
+                    0x0: Jump::ret1({{
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl, IsReturn);
+                }
+                0x5: decode FUNCT3 {
+                    0x0: Jump::ret2({{
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl, IsReturn);
+                }
+                default: decode FUNCT3 {
+                    0x0: Jump::j1({{
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl);
+                }
+            }
+            0x1: decode RS1 {
+                0x5: decode FUNCT3 {
+                    0x0: Jump::jalrret1({{
+                        Rd = NPC;
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl, IsCall, IsReturn);
+                }
+                default: decode FUNCT3 {
+                    0x0: Jump::jalr1({{
+                        Rd = NPC;
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl, IsCall);
+                }
+            }
+
+            0x5: decode RS1 {
+                0x1: decode FUNCT3 {
+                    0x0: Jump::jalrret2({{
+                        Rd = NPC;
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl, IsCall, IsReturn);
+                }
+                default: decode FUNCT3 {
+                    0x0: Jump::jalr2({{
+                        Rd = NPC;
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl, IsCall);
+                }
+            }
+
+            default: decode RS1 {
+                0x1: decode FUNCT3 {
+                    0x0: Jump::ret3({{
+                        Rd = NPC;
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl, IsReturn);
+                }
+                0x5: decode FUNCT3 {
+                    0x0: Jump::ret4({{
+                        Rd = NPC;
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl, IsReturn);
+                }
+                default: decode FUNCT3 {
+                    0x0: Jump::j2({{
+                        Rd = NPC;
+                        NPC = (imm + Rs1) & (~0x1);
+                    }}, IsIndirectControl, IsUncondControl);
+                }
+            }
+
         }
 
-        0x1b: JOp::jal({{
-            Rd = NPC;
-            NPC = PC + imm;
-        }}, IsDirectControl, IsUncondControl, IsCall);
-
+        0x1b: decode RD {
+            0x0: JOp::j({{
+                NPC = PC + imm;
+            }}, IsDirectControl, IsUncondControl);
+            default: JOp::jal({{
+                Rd = NPC;
+                NPC = PC + imm;
+            }}, IsDirectControl, IsUncondControl, IsCall);
+        }
         0x1c: decode FUNCT3 {
             format SystemOp {
                 0x0: decode FUNCT7 {

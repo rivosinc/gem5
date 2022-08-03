@@ -82,6 +82,18 @@ class VectorVRFUNARY0Op : public VectorInsn
             const loader::SymbolTable *symtab) const;
     };
 
+class VectorVWFUNARY0Op : public VectorInsn
+    {
+      public:
+        VectorVWFUNARY0Op(const char *mnem, ExtMachInst _machInst,
+            OpClass __opClass) :
+            VectorInsn(mnem, _machInst, __opClass)
+        {}
+
+        std::string generateDisassembly(Addr pc,
+            const loader::SymbolTable *symtab) const;
+    };
+
 class VectorVFUNARY0Op : public VectorInsn
     {
       public:
@@ -98,6 +110,18 @@ class VectorVMUNARY0Op : public VectorInsn
     {
       public:
         VectorVMUNARY0Op(const char *mnem, ExtMachInst _machInst,
+            OpClass __opClass) :
+            VectorInsn(mnem, _machInst, __opClass)
+        {}
+
+        std::string generateDisassembly(Addr pc,
+            const loader::SymbolTable *symtab) const;
+    };
+
+class VectorVMUNARYVs20Op : public VectorInsn
+    {
+      public:
+        VectorVMUNARYVs20Op(const char *mnem, ExtMachInst _machInst,
             OpClass __opClass) :
             VectorInsn(mnem, _machInst, __opClass)
         {}
@@ -202,10 +226,22 @@ class VectorIntegerExtensionOp : public VectorInsn
             const loader::SymbolTable *symtab) const;
     };
 
-class VectorMaskRegisterOp : public VectorInsn
+class VectorMaskRegisterVdVs2Vs1Op : public VectorInsn
     {
       public:
-        VectorMaskRegisterOp(const char *mnem, ExtMachInst _machInst,
+        VectorMaskRegisterVdVs2Vs1Op(const char *mnem, ExtMachInst _machInst,
+            OpClass __opClass) :
+            VectorInsn(mnem, _machInst, __opClass)
+        {}
+
+        std::string generateDisassembly(Addr pc,
+            const loader::SymbolTable *symtab) const;
+    };
+
+class VectorMaskRegisterVdVs2Op : public VectorInsn
+    {
+      public:
+        VectorMaskRegisterVdVs2Op(const char *mnem, ExtMachInst _machInst,
             OpClass __opClass) :
             VectorInsn(mnem, _machInst, __opClass)
         {}

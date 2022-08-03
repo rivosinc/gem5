@@ -75,11 +75,13 @@ class OpClass(Enum):
             'VectorVdVs2Vs1Op',
             'VectorVRXUNARY0',
             'VectorVRFUNARY0',
+            'VectorVWFUNARY0',
             'VectorVFUNARY0',
             'VectorVWXUNARY0',
             'VectorVMUNARY0',
             'VectorIntegerExtension',
-            'VectorMaskRegister',
+            'VectorMaskRegisterVdVs2Vs1',
+            'VectorMaskRegisterVdVs2',
             'VectorWholeRegisterMove',
             'VectorCfg']
 

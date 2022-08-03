@@ -230,7 +230,7 @@ VectorIntegerExtensionOp::generateDisassembly(Addr pc,
 }
 
 string
-VectorMaskRegisterOp::generateDisassembly(Addr pc,
+VectorMaskRegisterVdVs2Vs1Op::generateDisassembly(Addr pc,
     const loader::SymbolTable *symtab) const
 {
     stringstream ss;
@@ -238,6 +238,20 @@ VectorMaskRegisterOp::generateDisassembly(Addr pc,
     ss << VectorRegNames[vd()] << ", ";
     ss << VectorRegNames[vs2()] << ", ";
     ss << VectorRegNames[vs1()];
+    if (vm()==0) {
+        ss << ", " << "v0";
+    }
+    return ss.str();
+}
+
+string
+VectorMaskRegisterVdVs2Op::generateDisassembly(Addr pc,
+    const loader::SymbolTable *symtab) const
+{
+    stringstream ss;
+    ss << csprintf("0x%08x", machInst) << " " << mnemonic << " ";
+    ss << VectorRegNames[vd()] << ", ";
+    ss << VectorRegNames[vs2()];
     if (vm()==0) {
         ss << ", " << "v0";
     }
@@ -437,6 +451,20 @@ VectorVRFUNARY0Op::generateDisassembly(Addr pc,
 }
 
 string
+VectorVWFUNARY0Op::generateDisassembly(Addr pc,
+    const loader::SymbolTable *symtab) const
+{
+    stringstream ss;
+    ss << csprintf("0x%08x", machInst) << " " << mnemonic << " ";
+    ss << FloatRegNames[rd()] << ", ";
+    ss << VectorRegNames[vs2()] << ", ";
+    if (vm()==0) {
+        ss << ", " << "v0";
+    }
+    return ss.str();
+}
+
+string
 VectorVFUNARY0Op::generateDisassembly(Addr pc,
     const loader::SymbolTable *symtab) const
 {
@@ -457,6 +485,20 @@ VectorVMUNARY0Op::generateDisassembly(Addr pc,
     stringstream ss;
     ss << csprintf("0x%08x", machInst) << " " << mnemonic << " ";
     ss << VectorRegNames[vd()];
+    if (vm()==0) {
+        ss << ", " << "v0";
+    }
+    return ss.str();
+}
+
+string
+VectorVMUNARYVs20Op::generateDisassembly(Addr pc,
+    const loader::SymbolTable *symtab) const
+{
+    stringstream ss;
+    ss << csprintf("0x%08x", machInst) << " " << mnemonic << " ";
+    ss << VectorRegNames[vd()] << ", ";
+    ss << VectorRegNames[vs2()];
     if (vm()==0) {
         ss << ", " << "v0";
     }

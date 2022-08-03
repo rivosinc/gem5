@@ -117,6 +117,7 @@ static const OpClass VectorOPIVIOpClass = enums::VectorOPIVI;
 static const OpClass VectorVFUNARY0OpClass = enums::VectorVFUNARY0;
 static const OpClass VectorVMUNARY0OpClass = enums::VectorVMUNARY0;
 static const OpClass VectorVRFUNARY0OpClass = enums::VectorVRFUNARY0;
+static const OpClass VectorVWFUNARY0OpClass = enums::VectorVWFUNARY0;
 static const OpClass VectorVRXUNARY0OpClass = enums::VectorVRXUNARY0;
 static const OpClass VectorVWXUNARY0OpClass = enums::VectorVWXUNARY0;
 static const OpClass VectorVdVs2Fs1OpClass = enums::VectorVdVs2Fs1;
@@ -130,7 +131,8 @@ static const OpClass VectorWideningVXOpClass = enums::VectorWideningVX;
 static const OpClass VectorWideningWVOpClass = enums::VectorWideningWV;
 static const OpClass VectorWideningVVOpClass = enums::VectorWideningVV;
 static const OpClass VectorIntegerExtensionOpClass = enums::VectorIntegerExtension;
-static const OpClass VectorMaskRegisterOpClass = enums::VectorMaskRegister;
+static const OpClass VectorMaskRegisterVdVs2Vs1OpClass = enums::VectorMaskRegisterVdVs2Vs1;
+static const OpClass VectorMaskRegisterVdVs2OpClass = enums::VectorMaskRegisterVdVs2;
 static const OpClass VectorWholeRegisterMoveOpClass = enums::VectorWholeRegisterMove;
 
 static const OpClass Num_OpClasses = enums::Num_OpClass;

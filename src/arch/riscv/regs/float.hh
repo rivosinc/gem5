@@ -105,6 +105,11 @@ static constexpr freg_t freg(uint64_t f) { return {f}; }
 #define F32_SIGN ((uint32_t)1 << 31)
 #define F64_SIGN ((uint64_t)1 << 63)
 
+#define fsgnj32(a, b, n, x) \
+  f32((f32(a).v & ~F32_SIGN) | ((((x) ? f32(a).v : (n) ? F32_SIGN : 0) ^ f32(b).v) & F32_SIGN))
+#define fsgnj64(a, b, n, x) \
+  f64((f64(a).v & ~F64_SIGN) | ((((x) ? f64(a).v : (n) ? F64_SIGN : 0) ^ f64(b).v) & F64_SIGN))
+
 const int NumFloatRegs = 32;
 
 const std::vector<std::string> FloatRegNames = {
